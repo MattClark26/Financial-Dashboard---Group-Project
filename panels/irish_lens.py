@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+UNEMPLOYMENT_CACHE = "irish_unemployment.csv"
 CSO_DATASET_URL = (
     "https://ws.cso.ie/public/api.restful/"
     "PxStat.Data.Cube_API.ReadDataset/{table_code}/JSON-stat/2.0/en"
@@ -135,10 +136,26 @@ def compute_sahm_rule(unemployment: pd.Series) -> pd.DataFrame:
       
 def render_panel(selected_date: pd.Timestamp) -> dict:
   """Render the Irish Lens panel and return Thermometer metrics."""
-  st.subheader("Panel 4 - The Irish Lens")
-  st.caption(f"Selected date: {selected_date:%Y-%m-%d}")
-  st.info("Irish Lens data analysis will be added later")
-  return { 
+    st.subheader("Panel 4 - The Irish Lens")
+    st.caption(f"Selected date: {selected_date:%Y-%m-%d}")
+
+    unemployment = _to_time_series(
+        _read_cached_frame(UNEMPLOYMENT_CACHE)
+    )
+    unemployment = _slice_to_date(unemployment, selected_date)
+
+    if unemployment.empty:
+        st.info(
+            "Irish unemployment data is not available for the selected date."
+        )
+    else:
+        sahm = compute_sahm_rule(unemployment)
+        trigger_count = int(sahm["trigger"].fillna(False).sum())
+        st.caption(
+            f"Irish Sahm Rule observations: {len(sahm)}; "
+            f"triggers: {trigger_count}"
+        )
+    return { 
         "score": 0.0,
         "status": "green",
         "verdict": "Irish Lens analysis is not available yet.",
