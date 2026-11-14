@@ -104,6 +104,34 @@ def _slice_to_date(
 
     cutoff = pd.Timestamp(selected_date)
     return series[series.index <= cutoff]
+
+def compute_sahm_rule(unemployment: pd.Series) -> pd.DataFrame:
+    """Calculate the Sahm indicator and its 0.50-point recession trigger."""
+    monthly_unemployment = (
+        unemployment.sort_index()
+        .resample("MS")
+        .mean()
+    )
+
+    three_month_average = monthly_unemployment.rolling(
+        window=3,
+        min_periods=3,
+    ).mean()
+
+    twelve_month_low = three_month_average.rolling(
+        window=12,
+        min_periods=12,
+    ).min()
+
+    sahm_indicator = three_month_average - twelve_month_low
+
+    return pd.DataFrame(
+        {
+            "unemployment": monthly_unemployment,
+            "sahm_indicator": sahm_indicator,
+            "trigger": sahm_indicator >= 0.50,
+        }
+    )
       
 def render_panel(selected_date: pd.Timestamp) -> dict:
   """Render the Irish Lens panel and return Thermometer metrics."""
