@@ -93,6 +93,17 @@ def _to_time_series(frame: pd.DataFrame) -> pd.Series:
     series = pd.Series(values.to_numpy(), index=dates, name=value_column)
     series = series[~series.index.isna()].dropna().sort_index()
     return series[~series.index.duplicated(keep="last")]
+
+def _slice_to_date(
+    series: pd.Series,
+    selected_date: pd.Timestamp,
+) -> pd.Series:
+    """Keep only observations available by the selected dashboard date."""
+    if series.empty:
+        return series
+
+    cutoff = pd.Timestamp(selected_date)
+    return series[series.index <= cutoff]
       
 def render_panel(selected_date: pd.Timestamp) -> dict:
   """Render the Irish Lens panel and return Thermometer metrics."""
