@@ -72,7 +72,7 @@ def _to_time_series(frame: pd.DataFrame) -> pd.Series:
             "Cached CSO data must contain a time column and a value column. "
             f"Found columns: {list(frame.columns)}."
         )
-        raw_dates = frame[time_column].astype(str)
+    raw_dates = frame[time_column].astype(str)
     dates = pd.Series(pd.NaT, index=frame.index, dtype="datetime64[ns]")
     regular_mask = ~raw_dates.str.match(r"^\d{4}\s*Q[1-4]$")
     dates.loc[regular_mask] = pd.to_datetime(
