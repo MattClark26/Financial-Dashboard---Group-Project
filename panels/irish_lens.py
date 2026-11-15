@@ -135,7 +135,7 @@ def compute_sahm_rule(unemployment: pd.Series) -> pd.DataFrame:
     )
       
 def render_panel(selected_date: pd.Timestamp) -> dict:
-  """Render the Irish Lens panel and return Thermometer metrics."""
+    """Render the Irish Lens panel and return Thermometer metrics."""
     st.subheader("Panel 4 - The Irish Lens")
     st.caption(f"Selected date: {selected_date:%Y-%m-%d}")
 
@@ -164,6 +164,6 @@ def render_panel(selected_date: pd.Timestamp) -> dict:
             "false_alarms": 0,
             "avg_lead_months": 0,
         },
-  }
+   }
   
    
