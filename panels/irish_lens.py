@@ -1,6 +1,7 @@
 """Panel 4: The Irish Lens"""
 from pathlib import Path
 from pyjstat import pyjstat
+import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
 
@@ -133,7 +134,35 @@ def compute_sahm_rule(unemployment: pd.Series) -> pd.DataFrame:
             "trigger": sahm_indicator >= 0.50,
         }
     )
-      
+
+def _plot_sahm_rule(sahm: pd.DataFrame) -> go.Figure:
+    """Create the Irish Sahm Rule chart."""
+    figure = go.Figure()
+
+    figure.add_trace(
+        go.Scatter(
+            x=sahm.index,
+            y=sahm["sahm_indicator"],
+            mode="lines",
+            name="Irish Sahm indicator",
+        )
+    )
+
+    figure.add_hline(
+        y=0.50,
+        line_dash="dash",
+        annotation_text="0.50 trigger",
+    )
+
+    figure.update_layout(
+        title="Irish Sahm Rule",
+        xaxis_title="Date",
+        yaxis_title="Percentage points",
+        hovermode="x unified",
+    )
+
+    return figure
+    
 def render_panel(selected_date: pd.Timestamp) -> dict:
     """Render the Irish Lens panel and return Thermometer metrics."""
     st.subheader("Panel 4 - The Irish Lens")
@@ -154,6 +183,10 @@ def render_panel(selected_date: pd.Timestamp) -> dict:
         st.caption(
             f"Irish Sahm Rule observations: {len(sahm)}; "
             f"triggers: {trigger_count}"
+        )
+        st.plotly_chart(
+            _plot_sahm_rule(sahm),
+            use_container_width=True,
         )
     return { 
         "score": 0.0,
