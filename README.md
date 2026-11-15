@@ -43,15 +43,15 @@ shows the US share of Irish goods exports, and overlays the Panel 1 US recession
 
 ## Repository structure
 
-The dashboard will have one Streamlit entry point and one Python module per panel. This lets each of us work on our own panel while keeping the date slider, layout and Recession Thermometer in one place.
+The dashboard will have one Streamlit entry point and one Python package per panel. This lets each of us work on our own panel while keeping the date slider, layout and Recession Thermometer in one place.
 
 | Path | What goes there |
 | --- | --- |
 | `app.py` | Streamlit entry point, dashboard layout, time-machine slider and Recession Thermometer |
-| `panels/bond_market.py` | Panel 1 · Yield curves and US recession probability |
-| `panels/labour_market.py` | Panel 2 · Sahm rule, jobless claims and payrolls |
-| `panels/financial_stress.py` | Panel 3 · Credit spreads, VIX, the Fed stress index and S&P 500 drawdowns |
-| `panels/irish_lens.py` | Panel 4 · Irish economic indicators and exposure to a US downturn |
+| `panels/bond_market/` | Panel 1 · Yield curves and US recession probability |
+| `panels/labour_market/` | Panel 2 · Sahm rule, jobless claims and payrolls |
+| `panels/financial_stress/` | Panel 3 · Credit spreads, VIX, the Fed stress index and S&P 500 drawdowns |
+| `panels/irish_lens/` | Panel 4 · Irish economic indicators and exposure to a US downturn |
 | `data/` | Cached CSVs for when an API is unavailable |
 | `requirements.txt` | Python dependencies for running and deploying the dashboard |
 
@@ -72,3 +72,29 @@ dashboard still runs if an API is unavailable.
 Tools and Deployment
 Python with Pandas, NumPy, Matplotlib/Plotly, statsmodels and Streamlit. Code is hosted on GitHub and the
 dashboard is deployed on Hugging Face Spaces, with the FRED API key stored as a Space secret.
+
+## Running the interface
+
+Use Python 3.11 or newer:
+
+```sh
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+The current implementation is an empty terminal shell: four panes visible together, with a shared date input. Panel content, models, data connections, scores and the Recession Thermometer are future work.
+
+### Panel folders
+
+| Pane | Folder |
+| --- | --- |
+| Top left | `panels/bond_market/` |
+| Top right | `panels/labour_market/` |
+| Bottom left | `panels/financial_stress/` |
+| Bottom right | `panels/irish_lens/` |
+
+Each folder exports `TITLE` and `render(as_of: datetime.date)` from `__init__.py`. The shell calls that function inside its pane on every rerun. Add Streamlit controls and charts there, and keep supporting files within the same folder. Prefix widget keys with the panel name to avoid collisions. Empty render functions deliberately leave each pane blank.
+
+Keep changes to the shared shell and dependencies coordinated with the group. Future data integrations must respect release availability at the selected date. Agree the scoring contract before implementing the Recession Thermometer. Store API keys in deployment secrets.
