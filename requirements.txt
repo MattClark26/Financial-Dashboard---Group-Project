@@ -1,3 +1,4 @@
 pandas
 pyjstat
 streamlit
+plotly
