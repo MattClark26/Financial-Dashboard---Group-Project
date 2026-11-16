@@ -5,7 +5,7 @@
 | Matthias Clark | 25370033|
 | Tadhg Findon| 25316013|
 | Rohi Aluede     | 25395156      |
-|---|----------|
+|Luke O'Brien Peterson |25362871|
 |    |           |
 
 Overview
@@ -22,7 +22,7 @@ the user can adjust how much weight each signal gets.
 Each panel also scores its own indicators on how many recessions they caught, how many false alarms they
 gave, and how many months of warning they provided.
 
-Panel 1 – The Bond Market Signal (Yield Curve) – [Student 1]
+Panel 1 – The Bond Market Signal (Yield Curve) – [Luke O'Brien Peterson]
 Plots the 10-year minus 3-month and 10-year minus 2-year Treasury spreads from FRED, with US recessions
 shaded. The code detects inversion episodes and measures the lead time from each inversion to the next
 recession. A probit model built with statsmodels estimates the probability of a recession within 12 months. The
