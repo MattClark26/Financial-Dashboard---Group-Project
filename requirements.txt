@@ -2,3 +2,4 @@ streamlit>=1.55,<2
 pandas
 pyjstat
 plotly
+matplotlib
