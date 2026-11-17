@@ -222,6 +222,8 @@ def _plot_gdp_vs_mdd(
 def render(as_of: date) -> dict:
     """Render the Irish Lens panel and return Thermometer metrics."""
     selected_date = pd.Timestamp(as_of)
+    st.subheader("Panel 4 - The Irish Lens")
+    st.caption(f"Selected date: {selected_date:%Y-%m-%d}")
     
     gdp = _slice_to_date(
         _to_time_series(_read_cached_frame(GDP_CACHE)),
@@ -255,8 +257,6 @@ def render(as_of: date) -> dict:
         st.info(
             "GDP and MDD data are unavailable for the selected date."
         )
-    st.subheader("Panel 4 - The Irish Lens")
-    st.caption(f"Selected date: {selected_date:%Y-%m-%d}")
 
     unemployment = _to_time_series(
         _read_cached_frame(UNEMPLOYMENT_CACHE)
