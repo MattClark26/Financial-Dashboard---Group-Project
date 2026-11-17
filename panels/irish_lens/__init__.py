@@ -1,4 +1,4 @@
-"""Panel 4: The Irish Lens"""
+``````"""Panel 4: The Irish Lens"""
 
 from datetime import date
 from pathlib import Path
@@ -276,7 +276,7 @@ def render(as_of: date) -> dict:
         )
         st.plotly_chart(
             _plot_sahm_rule(sahm),
-            use_container_width=True,
+            width="stretch",
         )
     return { 
         "score": 0.0,
