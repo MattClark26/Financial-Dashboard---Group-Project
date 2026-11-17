@@ -1,4 +1,4 @@
-``````"""Panel 4: The Irish Lens"""
+"""Panel 4: The Irish Lens"""
 
 from datetime import date
 from pathlib import Path
