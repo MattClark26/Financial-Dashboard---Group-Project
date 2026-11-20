@@ -35,5 +35,5 @@ List the exact checks run and their results.
 - [ ] Data provenance updated
 - [ ] `CONTRIBUTIONS.md` updated
 - [ ] Rubric evidence register updated
-- [ ] Individual journal updated
+- [ ] Individual journal updated separately, if applicable
 - [ ] No credentials, private data or machine-specific paths added

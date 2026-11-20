@@ -68,7 +68,6 @@ Before building the panels, agree on the score scale and how each module will re
 - [`docs/rubric-evidence.md`](docs/rubric-evidence.md) maps each grading criterion to required evidence and verification.
 - [`docs/reproducibility.md`](docs/reproducibility.md) defines the clean-run, data fallback and historical-integrity standard.
 - [`docs/decision-log.md`](docs/decision-log.md) records cross-cutting analytical and architecture decisions.
-- [`docs/journals/`](docs/journals/) contains dated individual project journals.
 
 ## Data sources
 

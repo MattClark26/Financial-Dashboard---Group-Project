@@ -25,7 +25,7 @@ Status values are `Not started`, `In progress`, `Ready for review` and `Verified
 
 | Required evidence | Location | Status |
 | --- | --- | --- |
-| Dated record of goals, decisions, work completed, problems, testing, evidence and reflection | `docs/journals/rohi-alueude.md` | In progress |
+| Dated record of goals, decisions, work completed, problems, testing, evidence and reflection | Maintained separately by Rohi; not stored in this repository | Not started |
 
 ## Verification gates
 
@@ -38,4 +38,4 @@ A criterion should be marked `Verified` only when another group member has follo
 - Select historical dates and verify that later observations cannot influence the result.
 - Check all source and internal navigation links.
 - Review the contribution table against the Git history and merged pull requests.
-- Confirm that each journal describes real work and references verifiable evidence.
+- Confirm that each separately submitted journal describes real work and references verifiable evidence.

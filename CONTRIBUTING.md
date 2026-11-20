@@ -49,4 +49,4 @@ Add formatter, linter and type-check commands here once the group chooses those 
 
 A reviewer should check correctness, historical integrity, failure handling, clarity, accessibility and attribution—not only whether the application starts. Changes to the shared panel result contract or scoring scale require explicit group agreement.
 
-After merge, update the relevant contribution, rubric and journal evidence with the final commit or pull-request link.
+After merge, update the relevant contribution and rubric evidence with the final commit or pull-request link. Each contributor should maintain their individual journal separately for submission.
