@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local environments and secrets
+.venv/
+venv/
+.env
+.streamlit/secrets.toml
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/

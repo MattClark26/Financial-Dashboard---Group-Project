@@ -2,13 +2,11 @@
 
 | Name | Student Number |
 | ---- | -------------- |
-| Matthias Clark | 25370033|
-| Tadhg Findon| 25316013|
-| Rohi Aluede     | 25395156      |
-|---|----------|
-|    |           |
+| Matthias Clark | 25370033 |
+| Tadhg Findon | 25316013 |
+| Rohi Aluede | 25395156 |
 
-Overview
+## Overview
 
 Recession Radar is an interactive Python dashboard that tracks the best-known early-warning signals of a US
 recession and asks three questions most dashboards skip: is the alarm ringing, has this alarm been right before,
@@ -63,12 +61,21 @@ The dashboard will have one Streamlit entry point and one Python module per pane
 
 Before building the panels, agree on the score scale and how each module will receive the selected date and return a score, a green/amber/red status and a one-sentence verdict. Keep the recession probability and Sahm rule calculations callable so the Irish Lens can reuse them.
 
-Data Sources
+## Project evidence and process
+
+- [`CONTRIBUTIONS.md`](CONTRIBUTIONS.md) records individual ownership and verifiable contribution evidence.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) defines the branch, commit, review and attribution workflow.
+- [`docs/rubric-evidence.md`](docs/rubric-evidence.md) maps each grading criterion to required evidence and verification.
+- [`docs/reproducibility.md`](docs/reproducibility.md) defines the clean-run, data fallback and historical-integrity standard.
+- [`docs/decision-log.md`](docs/decision-log.md) records cross-cutting analytical and architecture decisions.
+- [`docs/journals/`](docs/journals/) contains dated individual project journals.
+
+## Data sources
 
 FRED and ALFRED (Federal Reserve Bank of St. Louis), Yahoo Finance via yfinance, and the Central
 Statistics Office (CSO) PxStat API. Cached CSV copies of all series will be stored in the repository so the
 dashboard still runs if an API is unavailable.
 
-Tools and Deployment
+## Tools and deployment
 Python with Pandas, NumPy, Matplotlib/Plotly, statsmodels and Streamlit. Code is hosted on GitHub and the
 dashboard is deployed on Hugging Face Spaces, with the FRED API key stored as a Space secret.
