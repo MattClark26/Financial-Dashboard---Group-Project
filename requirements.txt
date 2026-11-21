@@ -5,3 +5,4 @@ pyjstat
 plotly
 matplotlib
 pytest>=8,<10
+yfinance>=1.8,<2
