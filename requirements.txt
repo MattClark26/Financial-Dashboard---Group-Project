@@ -1,5 +1,7 @@
 streamlit>=1.55,<2
 pandas
+numpy>=1.26,<3
 pyjstat
 plotly
 matplotlib
+pytest>=8,<10
