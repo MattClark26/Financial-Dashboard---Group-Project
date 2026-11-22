@@ -1,18 +1,26 @@
 
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.express as px
 from datetime import date
 from pathlib import Path
 
 TITLE = "Bond market"
 
 def render(as_of: date) -> None:
-    st.subheader("Bond Market Signal")
+    st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
 
-    url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=T10Y3M"
+    st.html('<p style="color: #444444; margin: 0;">Choose yield spread</p>')
 
-    backup = Path(__file__).resolve().parents[2] / "data" / "T10Y3M.csv"
+    series = st.selectbox(
+        "Choose yield spread",
+        ["T10Y3M", "T10Y2Y"],
+        label_visibility="collapsed"
+    )
+
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
+
+    backup = Path(__file__).resolve().parents[2] / "data" / f"{series}.csv"
 
     try:
         data = pd.read_csv(url, index_col=0, parse_dates=True, na_values=".")
@@ -23,14 +31,20 @@ def render(as_of: date) -> None:
 
     data = data[data.index <= pd.Timestamp(as_of)]
 
-    fig = plt.figure(figsize=(9, 2.8))
+    if series == "T10Y3M":
+        title = "10-Year minus 3-Month Treasury Spread"
+    else:
+        title = "10-Year minus 2-Year Treasury Spread"
 
-    plt.plot(data.index, data["T10Y3M"])
+    fig = px.line(data, x=data.index, y=series, title=title)
 
-    plt.axhline(0, color="red", linestyle="--")
+    fig.add_hline(y=0, line_color="red", line_dash="dash")
 
-    plt.title("10-Year minus 3-Month Treasury Spread")
-    plt.ylabel("Percentage points")
+    fig.update_traces(
+        hovertemplate="Date: %{x|%d %B %Y}<br>Spread: %{y:.2f}<extra></extra>"
+    )
 
-    st.pyplot(fig, width="stretch")
-    plt.close(fig)
+    fig.update_layout(height=300, xaxis_title=None, yaxis_title="Percentage points")
+
+    st.plotly_chart(fig, width="stretch")
+
