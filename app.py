@@ -6,6 +6,7 @@ from types import ModuleType
 import streamlit as st
 
 from panels import bond_market, financial_stress, irish_lens, labour_market
+from ui.cursor import install_cursor
 from ui.intro import render_intro
 
 PANELS = (bond_market, labour_market, financial_stress, irish_lens)
@@ -39,6 +40,7 @@ def render_workspace() -> None:
 def main() -> None:
     st.set_page_config(page_title="Recession Radar", layout="wide", initial_sidebar_state="collapsed")
     st.html(Path(__file__).parent / "assets" / "dashboard.css")
+    install_cursor()
 
     if not st.session_state.get("dashboard_entered", False):
         if render_intro():
