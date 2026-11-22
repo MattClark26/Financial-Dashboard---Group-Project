@@ -1,7 +1,5 @@
 from datetime import date
-from html import escape
 from pathlib import Path
-from types import ModuleType
 
 import streamlit as st
 
@@ -9,18 +7,10 @@ from panels import bond_market, financial_stress, irish_lens, labour_market
 from ui.controls import render_time_machine
 from ui.cursor import install_cursor
 from ui.intro import render_intro
+from ui.panels import PANEL_IDENTITIES, render_connected_panel
 from ui.shell import render_composite, render_topbar
 
 PANELS = (bond_market, labour_market, financial_stress, irish_lens)
-
-
-def render_panel(panel: ModuleType, number: int, as_of: date) -> None:
-    with st.container(border=True, height=350, key=f"pane_{number}"):
-        st.html(
-            f'<div class="pane-heading"><span>{number:02d} &nbsp; {escape(panel.TITLE)}</span>'
-            '<span class="pane-state">UNCONNECTED</span></div>'
-        )
-        panel.render(as_of)
 
 
 def render_workspace() -> None:
@@ -34,11 +24,10 @@ def render_workspace() -> None:
         with composite:
             render_composite({})
     for offset in (0, 2):
-        columns = st.columns(2, gap="small")
+        columns = st.columns(2, gap=None)
         for index, column in enumerate(columns, start=offset):
             with column:
-                render_panel(PANELS[index], index + 1, as_of)
-    st.html('<div class="terminal-footer"><span>LAYOUT READY</span><span>DATA CONNECTIONS: 0 / 4</span></div>')
+                render_connected_panel(PANEL_IDENTITIES[index], PANELS[index], as_of)
 
 
 def main() -> None:
