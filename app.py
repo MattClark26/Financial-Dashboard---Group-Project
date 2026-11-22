@@ -3,15 +3,12 @@ from pathlib import Path
 
 import streamlit as st
 
-from panels import bond_market, financial_stress, irish_lens, labour_market
+from panels import financial_stress
 from ui.controls import render_time_machine
 from ui.cursor import install_cursor
 from ui.intro import render_intro
-from ui.panels import PANEL_IDENTITIES, render_connected_panel
+from ui.panels import PANEL_IDENTITIES, render_connected_panel, render_placeholder
 from ui.shell import render_composite, render_topbar
-
-PANELS = (bond_market, labour_market, financial_stress, irish_lens)
-
 
 def render_workspace() -> None:
     """Render the analytical workspace after the project briefing."""
@@ -27,7 +24,11 @@ def render_workspace() -> None:
         columns = st.columns(2, gap=None)
         for index, column in enumerate(columns, start=offset):
             with column:
-                render_connected_panel(PANEL_IDENTITIES[index], PANELS[index], as_of)
+                identity = PANEL_IDENTITIES[index]
+                if identity.key == "stress":
+                    render_connected_panel(identity, financial_stress, as_of)
+                else:
+                    render_placeholder(identity)
 
 
 def main() -> None:

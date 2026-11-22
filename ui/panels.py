@@ -49,3 +49,32 @@ def render_connected_panel(
     with st.container(key=f"panel_{identity.key}"):
         render_panel_header(identity)
         panel.render(as_of)
+
+
+def render_placeholder(identity: PanelIdentity) -> None:
+    """Reserve a full quadrant without inventing a collaborator's analysis."""
+    with st.container(key=f"panel_{identity.key}"):
+        render_panel_header(identity)
+        st.html(
+            f"""
+            <div class="rr-panel-body">
+              <div class="rr-panel-title-row">
+                <div>
+                  <h2 class="rr-panel-title">{escape(identity.subtitle)}</h2>
+                  <p class="rr-panel-summary">
+                    This workspace is reserved for {escape(identity.owner)}'s
+                    analysis and will accept the shared historical date.
+                  </p>
+                </div>
+              </div>
+              <div class="rr-placeholder">
+                <strong>COLLABORATOR PANEL</strong>
+                <p>No charts or claims have been added on their behalf.</p>
+              </div>
+            </div>
+            <div class="rr-panel-foot">
+              <span>AWAITING PANEL CONTRACT</span>
+              <span>WEIGHT —</span>
+            </div>
+            """
+        )
