@@ -25,12 +25,8 @@ __all__ = [
 ]
 
 
-def render(as_of: date) -> None:
-    """Render the panel shell while its analytical layers are connected."""
-    import streamlit as st
+def render(as_of: date, **kwargs: object) -> StressSignal:
+    """Render the compact panel and return its standard signal."""
+    from .view import render_overview
 
-    st.subheader("Financial Stress Signal")
-    st.caption(
-        f"Selected date: {as_of:%Y-%m-%d}. "
-        "Data and analytical foundations are ready for integration."
-    )
+    return render_overview(as_of, **kwargs)

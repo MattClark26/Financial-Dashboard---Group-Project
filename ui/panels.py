@@ -44,11 +44,14 @@ def render_connected_panel(
     identity: PanelIdentity,
     panel: ModuleType,
     as_of: object,
-) -> None:
+    **render_kwargs: object,
+) -> object:
     """Mount one existing panel module inside the shared quadrant."""
     with st.container(key=f"panel_{identity.key}"):
-        render_panel_header(identity)
-        panel.render(as_of)
+        view = render_kwargs.get("view")
+        signal = getattr(view, "signal", None)
+        render_panel_header(identity, status=getattr(signal, "status", "CONNECTED"))
+        return panel.render(as_of, **render_kwargs)
 
 
 def render_placeholder(identity: PanelIdentity) -> None:

@@ -13,20 +13,26 @@ from ui.shell import render_composite, render_topbar
 def render_workspace() -> None:
     """Render the analytical workspace after the project briefing."""
     default_date = st.session_state.get("as_of", date.today())
+    stress_view = financial_stress.load_financial_stress_view(default_date)
     render_topbar(default_date)
     with st.container(key="control_deck"):
         timeline, composite = st.columns([3, 2], gap="large", vertical_alignment="center")
         with timeline:
             as_of = render_time_machine(default_date)
         with composite:
-            render_composite({})
+            render_composite({"stress": stress_view.signal.score})
     for offset in (0, 2):
         columns = st.columns(2, gap=None)
         for index, column in enumerate(columns, start=offset):
             with column:
                 identity = PANEL_IDENTITIES[index]
                 if identity.key == "stress":
-                    render_connected_panel(identity, financial_stress, as_of)
+                    render_connected_panel(
+                        identity,
+                        financial_stress,
+                        as_of,
+                        view=stress_view,
+                    )
                 else:
                     render_placeholder(identity)
 
