@@ -6,6 +6,7 @@ from types import ModuleType
 import streamlit as st
 
 from panels import bond_market, financial_stress, irish_lens, labour_market
+from ui.intro import render_intro
 
 PANELS = (bond_market, labour_market, financial_stress, irish_lens)
 
@@ -19,9 +20,8 @@ def render_panel(panel: ModuleType, number: int, as_of: date) -> None:
         panel.render(as_of)
 
 
-def main() -> None:
-    st.set_page_config(page_title="Recession Radar", layout="wide", initial_sidebar_state="collapsed")
-    st.html(Path(__file__).parent / "assets" / "dashboard.css")
+def render_workspace() -> None:
+    """Render the analytical workspace after the project briefing."""
     st.html('<div class="terminal-bar"><strong>RECESSION RADAR</strong><span>US / IRELAND</span><span class="layout-label">2 × 2</span></div>')
     label, control = st.columns([5, 2], vertical_alignment="center")
     with label:
@@ -34,6 +34,19 @@ def main() -> None:
             with column:
                 render_panel(PANELS[index], index + 1, as_of)
     st.html('<div class="terminal-footer"><span>LAYOUT READY</span><span>DATA CONNECTIONS: 0 / 4</span></div>')
+
+
+def main() -> None:
+    st.set_page_config(page_title="Recession Radar", layout="wide", initial_sidebar_state="collapsed")
+    st.html(Path(__file__).parent / "assets" / "dashboard.css")
+
+    if not st.session_state.get("dashboard_entered", False):
+        if render_intro():
+            st.session_state.dashboard_entered = True
+            st.rerun()
+        return
+
+    render_workspace()
 
 
 if __name__ == "__main__":
