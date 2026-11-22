@@ -6,6 +6,7 @@ from types import ModuleType
 import streamlit as st
 
 from panels import bond_market, financial_stress, irish_lens, labour_market
+from ui.controls import render_time_machine
 from ui.cursor import install_cursor
 from ui.intro import render_intro
 from ui.shell import render_topbar
@@ -24,12 +25,10 @@ def render_panel(panel: ModuleType, number: int, as_of: date) -> None:
 
 def render_workspace() -> None:
     """Render the analytical workspace after the project briefing."""
-    render_topbar(date.today())
-    label, control = st.columns([5, 2], vertical_alignment="center")
-    with label:
-        st.html('<div class="workspace-label">WORKSPACE 01 <span> / FOUR PANEL VIEW</span></div>')
-    with control:
-        as_of = st.date_input("AS OF", value=date.today(), min_value=date(2006, 1, 1), max_value=date.today(), format="DD/MM/YYYY", key="as_of")
+    default_date = st.session_state.get("as_of", date.today())
+    render_topbar(default_date)
+    with st.container(key="control_deck"):
+        as_of = render_time_machine(default_date)
     for offset in (0, 2):
         columns = st.columns(2, gap="small")
         for index, column in enumerate(columns, start=offset):

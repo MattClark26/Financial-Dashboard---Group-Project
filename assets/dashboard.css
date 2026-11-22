@@ -231,6 +231,16 @@ input:focus-visible {
     border-bottom: 1px solid var(--rr-ink);
 }
 
+.st-key-control_deck {
+    min-height: 6.6rem;
+    padding: 1rem clamp(1rem, 2.5vw, 2.5rem);
+    border-bottom: 1px solid var(--rr-ink);
+}
+
+.st-key-control_deck > div {
+    max-width: 48rem;
+}
+
 .rr-control-cell {
     min-width: 0;
     display: grid;
