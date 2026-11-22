@@ -4,6 +4,7 @@ from datetime import date
 
 from .analytics import FinancialStressAnalytics, prepare_stress_analytics
 from .models import FinancialStressDataset, SeriesData, SeriesSpec, SourceMode
+from .scoring import StressSignal, score_financial_stress
 
 TITLE = "Financial stress"
 
@@ -13,8 +14,10 @@ __all__ = [
     "SeriesData",
     "SeriesSpec",
     "SourceMode",
+    "StressSignal",
     "TITLE",
     "prepare_stress_analytics",
+    "score_financial_stress",
     "render",
 ]
 
