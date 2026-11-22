@@ -33,7 +33,8 @@ html, body, [class*="css"] {
     display: none;
 }
 
-[data-testid="stAppViewBlockContainer"] {
+[data-testid="stAppViewBlockContainer"],
+[data-testid="stMainBlockContainer"] {
     width: 100%;
     max-width: none;
     padding: 0;
@@ -73,6 +74,7 @@ input:focus-visible {
     font-size: 1.45rem;
     font-weight: 700;
     letter-spacing: -.04em;
+    color: var(--rr-ink) !important;
 }
 
 .rr-radar-mark {
@@ -112,6 +114,7 @@ input:focus-visible {
     font: 540 clamp(3.25rem, 7vw, 7rem)/.9 var(--rr-sans);
     letter-spacing: -.07em;
     animation: rr-reveal .7s .2s ease both;
+    color: var(--rr-ink) !important;
 }
 
 .rr-intro-title em {
@@ -182,11 +185,11 @@ input:focus-visible {
 }
 
 @keyframes rr-reveal {
-    from { opacity: 0; transform: translateY(.8rem); }
+    from { transform: translateY(.8rem); }
 }
 
 @keyframes rr-reveal-button {
-    from { opacity: 0; transform: translate(-50%, .8rem); }
+    from { transform: translate(-50%, .8rem); }
 }
 
 /* Shared application chrome */
@@ -214,6 +217,13 @@ input:focus-visible {
 
 .rr-topbar-centre span {
     color: var(--rr-muted);
+}
+
+.rr-topbar-centre strong,
+.rr-composite strong,
+.rr-composite-status,
+.rr-topbar-meta {
+    color: var(--rr-ink) !important;
 }
 
 .rr-topbar-meta {
@@ -415,6 +425,7 @@ input:focus-visible {
     margin: 0;
     font: 560 clamp(1.8rem, 2.6vw, 3rem)/.95 var(--rr-sans);
     letter-spacing: -.055em;
+    color: var(--rr-ink) !important;
 }
 
 .rr-panel-summary {
@@ -443,7 +454,7 @@ input:focus-visible {
     display: grid;
     place-content: center;
     justify-items: start;
-    min-height: 8rem;
+    min-height: 5rem;
     border-top: 1px solid var(--rr-line);
     border-bottom: 1px solid var(--rr-line);
     color: var(--rr-muted);
@@ -473,6 +484,37 @@ input:focus-visible {
     grid-template-columns: repeat(3, 1fr);
     gap: 1px;
     background: var(--rr-line);
+}
+
+.rr-component-bars {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: .45rem;
+    padding: .4rem 0;
+}
+
+.rr-component-bars span {
+    display: grid;
+    gap: .25rem;
+    min-width: 0;
+    color: var(--rr-muted);
+    font: .65rem var(--rr-mono);
+}
+
+.rr-component-bars b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.rr-component-bars i {
+    height: .25rem;
+    background: linear-gradient(
+        90deg,
+        var(--rr-red) var(--rr-level),
+        var(--rr-line) var(--rr-level)
+    );
 }
 
 .rr-metric {
@@ -522,6 +564,7 @@ input:focus-visible {
     margin: .9rem 0;
     font: 560 clamp(3.2rem, 7vw, 7.4rem)/.87 var(--rr-sans);
     letter-spacing: -.075em;
+    color: var(--rr-ink) !important;
 }
 
 .rr-detail-lede {
@@ -539,6 +582,7 @@ input:focus-visible {
 .rr-detail-score strong {
     font: 500 clamp(4.5rem, 9vw, 9rem)/.75 var(--rr-mono);
     letter-spacing: -.09em;
+    color: var(--rr-ink) !important;
 }
 
 .rr-detail-score span {
@@ -653,8 +697,13 @@ input:focus-visible {
 @media (max-width: 760px) {
     .rr-intro-nav { min-height: 4.6rem; padding: 0 1.2rem; }
     .rr-intro-nav .rr-kicker { display: none; }
-    .rr-intro-copy { min-height: calc(100vh - 9.4rem); padding-top: 1.5rem; }
-    .rr-intro-title { font-size: clamp(3rem, 14vw, 5rem); }
+    .rr-intro-copy {
+        min-height: calc(100vh - 9.4rem);
+        place-content: start center;
+        padding: 1.8rem 1.2rem 7rem;
+    }
+    .rr-intro-title { margin-block: 1rem; font-size: clamp(2.75rem, 11vw, 4rem); }
+    .rr-intro-lede { font-size: .95rem; }
     .rr-intro-foot { min-height: 4.8rem; grid-template-columns: 1fr; padding: .55rem; }
     .rr-intro-foot span + span { border: 0; }
     .rr-topbar { grid-template-columns: 1fr auto; }

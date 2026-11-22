@@ -47,7 +47,7 @@ def build_demo_analytics(as_of: pd.Timestamp) -> FinancialStressAnalytics:
     index = pd.date_range(start, cutoff, freq="W-FRI")
     if len(index) < 210:
         index = pd.date_range(end=cutoff, periods=210, freq="W-FRI")
-    years = index.year.to_numpy() + (index.dayofyear.to_numpy() - 1) / 365.25
+    years = index.year.to_numpy() + (index.day_of_year.to_numpy() - 1) / 365.25
     cycle = np.sin(np.arange(len(index)) / 17.0)
     shock = (
         2.7 * _gaussian(years, 2008.75, .28)

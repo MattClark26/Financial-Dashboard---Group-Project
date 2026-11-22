@@ -66,12 +66,14 @@ def render_overview(
         </div>
         """
     )
-    st.plotly_chart(
-        _history_figure(state),
-        use_container_width=True,
-        config={"displayModeBar": False, "responsive": True},
-        key="stress_overview_chart",
+    component_bars = "".join(
+        (
+            f'<span><b>{key.replace("_", " ").upper()}</b>'
+            f'<i style="--rr-level:{value:.1f}%"></i></span>'
+        )
+        for key, value in signal.components.items()
     )
+    st.html(f'<div class="rr-component-bars">{component_bars}</div>')
     latest = state.analytics.features.iloc[-1]
     st.html(
         f"""
@@ -122,10 +124,16 @@ def _component_figure(view: FinancialStressView) -> go.Figure:
             "y": 1.02,
             "xanchor": "left",
             "x": 0,
-            "font": {"family": "monospace", "size": 11},
+            "font": {"family": "monospace", "size": 11, "color": "#15130f"},
         },
-        xaxis={"gridcolor": "#cbc3b6", "zeroline": False},
-        yaxis={"gridcolor": "#cbc3b6", "zeroline": False, "title": "Rolling z-score"},
+        font={"color": "#15130f"},
+        xaxis={"gridcolor": "#cbc3b6", "zeroline": False, "tickfont": {"color": "#69645b"}},
+        yaxis={
+            "gridcolor": "#cbc3b6",
+            "zeroline": False,
+            "title": "Rolling z-score",
+            "tickfont": {"color": "#69645b"},
+        },
     )
     return figure
 

@@ -5,7 +5,7 @@ import streamlit as st
 
 from panels import financial_stress
 from ui.controls import render_time_machine
-from ui.cursor import install_cursor
+from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
 from ui.panels import PANEL_IDENTITIES, render_connected_panel, render_placeholder
 from ui.shell import render_composite, render_topbar
@@ -15,6 +15,7 @@ def render_workspace() -> None:
     default_date = st.session_state.get("as_of", date.today())
     stress_view = financial_stress.load_financial_stress_view(default_date)
     if st.session_state.get("active_panel") == "stress":
+        scroll_to_top()
         financial_stress.render_detail(default_date, view=stress_view)
         return
     render_topbar(default_date)

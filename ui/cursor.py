@@ -14,3 +14,12 @@ def install_cursor() -> None:
     """Run a guarded parent-document cursor installer in a zero-height frame."""
     script = CURSOR_SCRIPT.read_text(encoding="utf-8")
     components.html(f"<script>{script}</script>", height=0, width=0)
+
+
+def scroll_to_top() -> None:
+    """Reset the parent page when switching between full-page app views."""
+    components.html(
+        "<script>window.parent.scrollTo({top: 0, left: 0, behavior: 'auto'});</script>",
+        height=0,
+        width=0,
+    )
