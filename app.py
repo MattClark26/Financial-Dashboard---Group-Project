@@ -8,6 +8,7 @@ import streamlit as st
 from panels import bond_market, financial_stress, irish_lens, labour_market
 from ui.cursor import install_cursor
 from ui.intro import render_intro
+from ui.shell import render_topbar
 
 PANELS = (bond_market, labour_market, financial_stress, irish_lens)
 
@@ -23,7 +24,7 @@ def render_panel(panel: ModuleType, number: int, as_of: date) -> None:
 
 def render_workspace() -> None:
     """Render the analytical workspace after the project briefing."""
-    st.html('<div class="terminal-bar"><strong>RECESSION RADAR</strong><span>US / IRELAND</span><span class="layout-label">2 × 2</span></div>')
+    render_topbar(date.today())
     label, control = st.columns([5, 2], vertical_alignment="center")
     with label:
         st.html('<div class="workspace-label">WORKSPACE 01 <span> / FOUR PANEL VIEW</span></div>')
