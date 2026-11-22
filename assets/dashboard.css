@@ -237,9 +237,7 @@ input:focus-visible {
     border-bottom: 1px solid var(--rr-ink);
 }
 
-.st-key-control_deck > div {
-    max-width: 48rem;
-}
+.st-key-control_deck > div { width: 100%; }
 
 .rr-control-cell {
     min-width: 0;

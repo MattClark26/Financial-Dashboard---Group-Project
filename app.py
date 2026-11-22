@@ -9,7 +9,7 @@ from panels import bond_market, financial_stress, irish_lens, labour_market
 from ui.controls import render_time_machine
 from ui.cursor import install_cursor
 from ui.intro import render_intro
-from ui.shell import render_topbar
+from ui.shell import render_composite, render_topbar
 
 PANELS = (bond_market, labour_market, financial_stress, irish_lens)
 
@@ -28,7 +28,11 @@ def render_workspace() -> None:
     default_date = st.session_state.get("as_of", date.today())
     render_topbar(default_date)
     with st.container(key="control_deck"):
-        as_of = render_time_machine(default_date)
+        timeline, composite = st.columns([3, 2], gap="large", vertical_alignment="center")
+        with timeline:
+            as_of = render_time_machine(default_date)
+        with composite:
+            render_composite({})
     for offset in (0, 2):
         columns = st.columns(2, gap="small")
         for index, column in enumerate(columns, start=offset):

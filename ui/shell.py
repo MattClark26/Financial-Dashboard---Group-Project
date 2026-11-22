@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Mapping
 
 import streamlit as st
 
@@ -22,5 +23,46 @@ def render_topbar(as_of: date) -> None:
           </div>
           <span class="rr-topbar-meta">1 OF 4 CONNECTED</span>
         </header>
+        """
+    )
+
+
+def calculate_composite(
+    scores: Mapping[str, float],
+    weights: Mapping[str, float] | None = None,
+) -> float | None:
+    """Return a weighted average of connected panel scores."""
+    if not scores:
+        return None
+    active_weights = weights or {key: 1.0 for key in scores}
+    denominator = sum(max(active_weights.get(key, 0.0), 0.0) for key in scores)
+    if denominator == 0:
+        return None
+    return sum(
+        max(0.0, min(100.0, score)) * max(active_weights.get(key, 0.0), 0.0)
+        for key, score in scores.items()
+    ) / denominator
+
+
+def render_composite(scores: Mapping[str, float]) -> None:
+    """Render the aggregate while clearly stating how many panels contribute."""
+    score = calculate_composite(scores)
+    if score is None:
+        value, status, marker = "—", "WAITING", 0.0
+    else:
+        value = f"{score:.0f}"
+        status = "ALERT" if score >= 67 else "WATCH" if score >= 34 else "CALM"
+        marker = score
+    st.html(
+        f"""
+        <div class="rr-control-label">
+          <span>CONNECTED COMPOSITE</span>
+          <strong>{len(scores)} / 4 PANELS</strong>
+        </div>
+        <div class="rr-composite">
+          <div><strong>{value}</strong><small>/100</small></div>
+          <span class="rr-composite-status">{status}</span>
+          <div class="rr-risk-track" style="--rr-score:{marker:.1f}%"><i></i></div>
+        </div>
         """
     )
