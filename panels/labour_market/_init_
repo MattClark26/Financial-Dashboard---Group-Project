@@ -1,1 +1,6 @@
-"""Panel 2 of Recession Radar: The labour market as confirmation of a recession warning."""
+from datetime import date
+TITLE = """Panel 2 of Recession Radar: The labour market as confirmation of a recession warning."""
+
+
+def render(as_of: date) -> None:
+	pass
