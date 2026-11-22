@@ -1,5 +1,5 @@
 """
-Stand-alone test page for Panel 2. This is NOT the group's main app.
+Stand-alone test page for Panel 2. This is NOT the main app.
 
 It mimics what the main app will do: a time machine slider, then calls to
 get_signal(as_of) and render_panel(as_of) and nothing else. That lets
