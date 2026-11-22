@@ -13,7 +13,12 @@ from .analytics import (
     build_stress_features,
     prepare_stress_analytics,
 )
-from .data import DataAccessError, load_financial_stress_data
+from .data import (
+    DataAccessError,
+    fetch_fred_series,
+    fetch_yahoo_series,
+    load_financial_stress_data,
+)
 from .scoring import StressSignal, score_financial_stress
 
 
@@ -80,7 +85,18 @@ def load_financial_stress_view(
     cutoff = pd.Timestamp(as_of).normalize()
     if prefer_live:
         try:
-            dataset = load_financial_stress_data(cutoff, allow_live=True)
+            dataset = load_financial_stress_data(
+                cutoff,
+                allow_live=True,
+                fetchers={
+                    "fred": lambda spec, date: fetch_fred_series(
+                        spec,
+                        date,
+                        timeout=12,
+                    ),
+                    "yahoo": fetch_yahoo_series,
+                },
+            )
             analytics = prepare_stress_analytics(dataset)
             signal = score_financial_stress(analytics)
             return FinancialStressView(

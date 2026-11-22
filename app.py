@@ -14,6 +14,9 @@ def render_workspace() -> None:
     """Render the analytical workspace after the project briefing."""
     default_date = st.session_state.get("as_of", date.today())
     stress_view = financial_stress.load_financial_stress_view(default_date)
+    if st.session_state.get("active_panel") == "stress":
+        financial_stress.render_detail(default_date, view=stress_view)
+        return
     render_topbar(default_date)
     with st.container(key="control_deck"):
         timeline, composite = st.columns([3, 2], gap="large", vertical_alignment="center")

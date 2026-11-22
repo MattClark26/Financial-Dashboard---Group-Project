@@ -22,6 +22,7 @@ __all__ = [
     "load_financial_stress_view",
     "score_financial_stress",
     "render",
+    "render_detail",
 ]
 
 
@@ -30,3 +31,10 @@ def render(as_of: date, **kwargs: object) -> StressSignal:
     from .view import render_overview
 
     return render_overview(as_of, **kwargs)
+
+
+def render_detail(as_of: date, **kwargs: object) -> None:
+    """Render the full-page financial stress analysis."""
+    from .view import render_detail as render_detail_view
+
+    render_detail_view(as_of, **kwargs)
