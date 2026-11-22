@@ -83,11 +83,17 @@ def _load_export_exposure(
     )
 
     frame = frame.dropna(
-        subset=["Date", "US Exports", "Total Exports"]
+    subset=["Date", "US Exports", "Total Exports"]
     )
+    frame = frame[
+    (frame["US Exports"] >= 0)
+    & (frame["Total Exports"] > 0)
+    ]
     frame = frame[frame["Date"] <= selected_date]
-    frame = frame[frame["Total Exports"] > 0]
-    frame = frame.sort_values("Date")
+    frame = frame.sort_values("Date").drop_duplicates(
+    subset=["Date"],
+    keep="last",
+    )
 
     if frame.empty:
         return pd.DataFrame()
