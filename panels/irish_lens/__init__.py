@@ -379,10 +379,14 @@ def render(as_of: date) -> dict:
             _plot_export_exposure(export_exposure),
             width="stretch",
         )
+
+    st.info(
+        "US recession-risk transmission data is pending Panel 1 integration."
+    )
     return { 
         "score": 0.0,
-        "status": "green",
-        "verdict": "Irish Lens analysis is not available yet.",
+        "status": "amber",
+        "verdict": "Irish Lens indicators are available; transmission score is pending.",
         "track_record": {
             "caught": 0,
             "false_alarms": 0,
