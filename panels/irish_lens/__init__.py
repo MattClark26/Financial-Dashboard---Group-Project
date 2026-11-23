@@ -368,6 +368,16 @@ def render(as_of: date) -> dict:
             _plot_sahm_rule(sahm),
             width="stretch",
         )
+        if trigger_count == 0:
+            st.caption(
+                "The Irish Sahm indicator has not reached its 0.50-point "
+                "trigger. This does not rule out a slowdown."
+            )
+        else:
+            st.caption(
+                f"The Irish Sahm indicator has crossed the 0.50-point trigger "
+                f"{trigger_count} time(s). This indicates elevated recession risk."
+            )
     export_exposure = _load_export_exposure(selected_date)
 
     if export_exposure.empty:
