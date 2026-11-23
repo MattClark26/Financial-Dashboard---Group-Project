@@ -27,6 +27,9 @@ def test_default_view_is_clearly_labelled_simulated() -> None:
     assert view.mode == "SIMULATED PREVIEW"
     assert not view.is_live
     assert 0 <= view.signal.score <= 100
+    assert not view.history.empty
+    assert view.quality.coverage_percent == 100
+    assert len(view.backtest.recessions) == 2
 
 
 def test_demo_recession_labels_cover_known_episodes() -> None:
