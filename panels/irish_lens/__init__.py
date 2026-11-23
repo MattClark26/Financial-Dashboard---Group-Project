@@ -213,14 +213,14 @@ def _plot_sahm_rule(sahm: pd.DataFrame) -> go.Figure:
         )
     )
 
-figure.add_hline(
-    y=0.50,
-    line_color="#d75f47",
-    line_width=3,
-    line_dash="dash",
-    annotation_text="0.50 trigger",
-    annotation_position="bottom right",
-)
+    figure.add_hline(
+        y=0.50,
+        line_color="#d75f47",
+        line_width=3,
+        line_dash="dash",
+        annotation_text="0.50 trigger",
+        annotation_position="bottom right",
+    )
 
     figure.update_layout(
         title="Irish Sahm Rule",
