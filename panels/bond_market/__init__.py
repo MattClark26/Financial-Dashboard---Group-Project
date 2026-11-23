@@ -35,6 +35,23 @@ def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
 
 
 def render(as_of: date) -> None:
+    st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
+    st.html(
+        '<p style="color: #444444; margin: 0 0 10px 0;">'
+        'Explore Treasury yield curves, inversion signals and US recession probabilities.'
+        '</p>'
+    )
+    st.html(
+        f'<p style="color: #666666; margin: 0 0 12px 0;">'
+        f'Time Machine: {as_of:%b %Y}'
+        f'</p>'
+    )
+
+
+def render_full(as_of: date) -> None:
+    from ui.controls import render_time_machine
+    as_of = render_time_machine(as_of)
+
     # Yield curve chart
 
     st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
@@ -189,7 +206,7 @@ def render(as_of: date) -> None:
 
     st.html("""
     <style>
-    .st-key-panel_bond [data-testid="stExpander"] summary p {
+    [data-testid="stExpander"] summary p {
         color: #222222 !important;
     }
 
