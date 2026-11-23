@@ -598,7 +598,6 @@ def render_detail(as_of: date) -> None:
                     "This indicates exposure, not proof that a US "
                     "downturn will cause an Irish recession."
                 )
-                )
     with method:
         st.html(
             """
