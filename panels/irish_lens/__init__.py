@@ -489,8 +489,9 @@ def render_detail(as_of: date) -> None:
         """
     )
 
-    overview, backtest, method, sources = st.tabs(
-        ["Overview", "Backtest", "Method", "Sources"]
+    overview, method, sources = st.tabs(
+        ["Overview", "Method", "Sources"]
+    )
     )
 
     gdp = _slice_to_date(
@@ -516,6 +517,106 @@ def render_detail(as_of: date) -> None:
             </div>
             """
         )
+
+        top_row = st.columns(2, gap="small")
+
+        with top_row[0]:
+            with st.container(border=True):
+                st.subheader("Headline GDP vs MDD")
+
+                if not gdp.empty and not mdd.empty:
+                    st.plotly_chart(
+                        _plot_gdp_vs_mdd(gdp, mdd),
+                        width="stretch",
+                        config={
+                            "displayModeBar": False,
+                            "responsive": True,
+                        },
+                        key="irish_gdp_mdd_detail",
+                    )
+                    st.caption(
+                        "Headline GDP has changed sharply, while Modified "
+                        "Domestic Demand provides a steadier view of domestic "
+                        "activity. GDP can include multinational distortions."
+                    )
+                else:
+                    st.info("GDP and MDD data are unavailable for this date.")
+
+        with top_row[1]:
+            with st.container(border=True):
+                st.subheader("Irish Sahm Rule")
+
+                if unemployment.empty:
+                    st.info(
+                        "Irish unemployment data is unavailable for this date."
+                    )
+                else:
+                    sahm = compute_sahm_rule(unemployment)
+                    trigger_count = int(
+                        sahm["trigger"].fillna(False).sum()
+                    )
+
+                    st.plotly_chart(
+                        _plot_sahm_rule(sahm),
+                        width="stretch",
+                        config={
+                            "displayModeBar": False,
+                            "responsive": True,
+                        },
+                        key="irish_sahm_detail",
+                    )
+
+                    if trigger_count == 0:
+                        st.caption(
+                            "The Irish Sahm indicator has not reached "
+                            "its 0.50-point trigger."
+                        )
+                    else:
+                        st.caption(
+                            f"The indicator has crossed the 0.50-point "
+                            f"trigger {trigger_count} time(s). It is a "
+                            "warning indicator, not proof of a recession."
+                        )
+
+        with st.container(border=True):
+            st.subheader("US export exposure")
+
+            if export_exposure.empty:
+                st.info(
+                    "Irish export exposure data is unavailable for this date."
+                )
+            else:
+                st.plotly_chart(
+                    _plot_export_exposure(export_exposure),
+                    width="stretch",
+                    config={
+                        "displayModeBar": False,
+                        "responsive": True,
+                    },
+                    key="irish_export_detail",
+                )
+
+                latest_share = float(
+                    export_exposure["US Share (%)"].iloc[-1]
+                )
+                rolling = export_exposure[
+                    "12-month average (%)"
+                ].dropna()
+
+                if rolling.empty:
+                    st.caption(
+                        f"The latest US export share is "
+                        f"{latest_share:.1f}%. "
+                        "A 12-month average is not yet available."
+                    )
+                else:
+                    latest_average = float(rolling.iloc[-1])
+                    st.caption(
+                        f"The latest US export share is {latest_share:.1f}%, "
+                        f"with a 12-month average of {latest_average:.1f}%. "
+                        "This indicates exposure, not proof that a US "
+                        "downturn will cause an Irish recession."
+                    )
 
         if not gdp.empty and not mdd.empty:
             st.plotly_chart(
@@ -596,22 +697,6 @@ def render_detail(as_of: date) -> None:
                     f"{latest_average:.1f}%. This indicates exposure, "
                     "not proof that a US downturn will cause an Irish recession."
                 )
-
-    with backtest:
-        st.html(
-            """
-            <div class="rr-section-head">
-              <span>BACKTEST</span>
-              <strong>NOT YET IMPLEMENTED</strong>
-            </div>
-            """
-        )
-        st.info(
-            "The Irish Lens does not currently have a validated historical "
-            "backtest or recession-prediction rule. No backtest results "
-            "should be presented until historical labels and a transparent "
-            "evaluation period are available."
-        )
 
     with method:
         st.html(
