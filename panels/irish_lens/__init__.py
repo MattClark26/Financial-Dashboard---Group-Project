@@ -390,6 +390,21 @@ def render(as_of: date) -> dict:
             _plot_export_exposure(export_exposure),
             width="stretch",
         )
+                latest_share = export_exposure["US Share (%)"].iloc[-1]
+        latest_average = export_exposure["12-month average (%)"].dropna()
+
+        if latest_average.empty:
+            st.caption(
+                "US exports account for this share of Irish merchandise exports."
+            )
+        else:
+            latest_average_value = latest_average.iloc[-1]
+            st.caption(
+                f"The latest US export share is {latest_share:.1f}%, with a "
+                f"12-month average of {latest_average_value:.1f}%. "
+                "This indicates exposure, not proof that a US downturn "
+                "will cause an Irish recession."
+            )
 
     st.info(
         "US recession-risk transmission data is pending Panel 1 integration."
