@@ -40,6 +40,18 @@ def _gaussian(values: np.ndarray, centre: float, width: float) -> np.ndarray:
     return np.exp(-np.square(values - centre) / (2 * width * width))
 
 
+def build_demo_recession_indicator(index: pd.DatetimeIndex) -> pd.Series:
+    """Return deterministic NBER-style labels for the illustrative history."""
+    periods = (
+        (pd.Timestamp("2007-12-01"), pd.Timestamp("2009-06-30")),
+        (pd.Timestamp("2020-02-01"), pd.Timestamp("2020-04-30")),
+    )
+    values = pd.Series(0.0, index=index, name="us_recession")
+    for start, end in periods:
+        values.loc[(values.index >= start) & (values.index <= end)] = 1.0
+    return values
+
+
 def build_demo_analytics(as_of: pd.Timestamp) -> FinancialStressAnalytics:
     """Build deterministic illustrative history for offline interface previews."""
     cutoff = pd.Timestamp(as_of).normalize()
