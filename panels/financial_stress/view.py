@@ -43,6 +43,17 @@ def _history_figure(view: FinancialStressView, weeks: int = 104) -> go.Figure:
     return figure
 
 
+def _audit_table(view: FinancialStressView) -> pd.DataFrame:
+    """Create the dated evidence table offered to users for reproduction."""
+    raw = view.analytics.weekly.rename(
+        columns={column: f"raw_{column}" for column in view.analytics.weekly.columns}
+    )
+    standardised = view.analytics.features[list(COMPONENT_COLUMNS.values())]
+    scored = view.history[[*COMPONENT_COLUMNS, "score", "breadth", "available"]]
+    recession = view.recession_indicator.rename("us_recession")
+    return pd.concat([raw, standardised, scored, recession], axis=1).sort_index()
+
+
 def render_overview(
     as_of: date,
     *,
@@ -76,7 +87,7 @@ def render_overview(
     st.html(f'<div class="rr-component-bars">{component_bars}</div>')
     st.plotly_chart(
         _history_figure(state),
-        use_container_width=True,
+        width="stretch",
         config={"displayModeBar": False, "responsive": True},
         key="stress_overview_history",
     )
@@ -227,7 +238,7 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         )
         st.plotly_chart(
             _component_figure(state),
-            use_container_width=True,
+            width="stretch",
             config={"displayModeBar": False, "responsive": True},
             key="stress_detail_chart",
         )
@@ -268,7 +279,7 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         metrics[3].metric("Median warning", lead)
         st.plotly_chart(
             _backtest_figure(state, result),
-            use_container_width=True,
+            width="stretch",
             config={"displayModeBar": False, "responsive": True},
             key="stress_backtest_chart",
         )
@@ -303,11 +314,16 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
             """
         )
         st.code(
-            "score = mean(clip(50 + component_z × 50/3, 0, 100))",
+            "score = weighted_mean(clip(50 + component_z × 50/3, 0, 100))",
             language="python",
         )
 
     with sources:
+        quality_columns = st.columns(4)
+        quality_columns[0].metric("Data quality", state.quality.label)
+        quality_columns[1].metric("Series available", f"{state.quality.available_series}/6")
+        quality_columns[2].metric("Coverage", f"{state.quality.coverage_percent:.0f}%")
+        quality_columns[3].metric("Maximum lag", f"{state.quality.maximum_lag_days} days")
         source_rows = [
             {
                 "Measure": spec.label,
@@ -318,12 +334,12 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
                 "Source": spec.source_url,
             }
             for key, spec in SERIES_SPECS.items()
-            if key in {"ig_oas", "hy_oas", "vix", "stlfsi", "sp500"}
+            if key in {"ig_oas", "hy_oas", "vix", "stlfsi", "sp500", "us_recession"}
         ]
         st.dataframe(
             pd.DataFrame(source_rows),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "Source": st.column_config.LinkColumn("Source"),
             },
@@ -331,4 +347,16 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         st.caption(
             "Runtime cache files are used when a public endpoint is temporarily "
             "unavailable. The selected date is enforced before transformation."
+        )
+        audit = _audit_table(state)
+        st.download_button(
+            "Download dated panel evidence (CSV)",
+            data=audit.to_csv(index_label="date"),
+            file_name=f"financial-stress-evidence-{signal.as_of:%Y-%m-%d}.csv",
+            mime="text/csv",
+            key="stress_download_evidence",
+        )
+        st.caption(
+            "The export includes raw inputs, causal z-scores, component scores, "
+            "the composite score, alert breadth and recession reference labels."
         )
