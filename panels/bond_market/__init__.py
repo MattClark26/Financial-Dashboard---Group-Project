@@ -125,6 +125,16 @@ def render(as_of: date) -> None:
 
     y = training_data["recession_next_12m"].astype(int)
 
+    split = int(len(training_data) * 0.8)
+
+    test_data = training_data.iloc[split:]
+
+    train_data = training_data.iloc[:split - 12]
+
+    with st.expander("Model testing periods"):
+        st.html(f'<p style="color: #222222;">Training observations: {len(train_data)}</p>')
+        st.html(f'<p style="color: #222222;">Testing observations: {len(test_data)}</p>')
+
     probit_model = sm.Probit(y, X).fit(disp=False)
 
     latest_data = model_data[["T10Y3M", "T10Y2Y"]].tail(1)
