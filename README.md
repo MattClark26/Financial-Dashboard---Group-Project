@@ -90,11 +90,19 @@ for every panel, while the connected composite explicitly reports how many
 panels currently contribute to its reading.
 
 Panel 3 is connected to the Financial Stress analytical pipeline and can expand
-into a complete overview, methodology and source-access page. Its default
+into a complete overview, interactive backtest, methodology and source-access
+page. Its default
 interface history is deterministically simulated and labelled as such so the
 layout remains reproducible offline. A user can request a live refresh from the
 expanded panel; public data degrades to runtime cache and then back to the
 labelled preview if a provider is unavailable.
+
+The panel aligns observations to completed Friday weeks, calculates causal
+156-week z-scores and combines five market channels into a documented weighted
+0–100 score. The backtest control lets a user change the alert threshold and
+immediately inspect recessions caught, false alarms, precision and median warning
+time. The Sources tab reports data coverage and lag, links every public series,
+and exports the full dated evidence table as CSV for independent checking.
 
 Panels 1, 2 and 4 intentionally remain presentation placeholders in the shared
 workspace. Their existing code is not deleted or represented as Rohi's work;
@@ -130,5 +138,11 @@ Run the complete automated suite before pushing:
 ```sh
 pytest -q
 ```
+
+The Financial Stress tests separately cover public-source parsing and fallback,
+as-of-date enforcement, causal transformations, bounded scoring, recession and
+alert episode detection, false-alarm evaluation, provenance diagnostics and the
+offline presentation state. No API key is required for the labelled preview or
+for the test suite.
 
 Keep changes to the shared shell and dependencies coordinated with the group. Future data integrations must respect release availability at the selected date. Agree the scoring contract before implementing the Recession Thermometer. Store API keys in deployment secrets.

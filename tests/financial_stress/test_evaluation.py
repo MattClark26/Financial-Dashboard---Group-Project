@@ -58,3 +58,17 @@ def test_evaluate_alerts_reports_hits_false_alarms_and_lead_time() -> None:
     assert result.recall == 1
     assert result.precision == 0.5
     assert result.median_lead_weeks == 10
+
+
+def test_alert_after_recession_onset_cannot_count_as_advance_warning() -> None:
+    index = pd.date_range("2019-01-04", periods=20, freq="W-FRI")
+    scores = pd.Series(20.0, index=index)
+    scores.iloc[12:15] = 80
+    recession = pd.Series(0, index=index)
+    recession.iloc[10:16] = 1
+
+    result = evaluate_alerts(scores, recession, lookahead_weeks=12)
+
+    assert result.hits == 0
+    assert result.false_alarms == 1
+    assert result.lead_weeks == ()
