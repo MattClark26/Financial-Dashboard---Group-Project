@@ -308,8 +308,6 @@ def _plot_export_exposure(exposure: pd.DataFrame) -> go.Figure:
 
     return figure
     
-
-            )
     export_exposure = _load_export_exposure(selected_date)
 
     if export_exposure.empty:
