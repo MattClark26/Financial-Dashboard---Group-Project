@@ -586,6 +586,7 @@ def render_detail(as_of: date) -> None:
                     f"{latest_average:.1f}%. "
                     "This indicates exposure, not proof that a US "
                     "downturn will cause an Irish recession."
+                )
     with method:
         st.html(
             """
