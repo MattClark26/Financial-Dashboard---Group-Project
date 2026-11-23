@@ -1,39 +1,58 @@
 from datetime import date
-from html import escape
 from pathlib import Path
-from types import ModuleType
 
 import streamlit as st
 
-from panels import bond_market, financial_stress, irish_lens, labour_market
+from panels import financial_stress
+from ui.controls import render_time_machine
+from ui.cursor import install_cursor, scroll_to_top
+from ui.intro import render_intro
+from ui.panels import PANEL_IDENTITIES, render_connected_panel, render_placeholder
+from ui.shell import render_composite, render_topbar
 
-PANELS = (bond_market, labour_market, financial_stress, irish_lens)
-
-
-def render_panel(panel: ModuleType, number: int, as_of: date) -> None:
-    with st.container(border=True, height=350, key=f"pane_{number}"):
-        st.html(
-            f'<div class="pane-heading"><span>{number:02d} &nbsp; {escape(panel.TITLE)}</span>'
-            '<span class="pane-state">UNCONNECTED</span></div>'
-        )
-        panel.render(as_of)
+def render_workspace() -> None:
+    """Render the analytical workspace after the project briefing."""
+    default_date = st.session_state.get("as_of", date.today())
+    stress_view = financial_stress.load_financial_stress_view(default_date)
+    if st.session_state.get("active_panel") == "stress":
+        scroll_to_top()
+        financial_stress.render_detail(default_date, view=stress_view)
+        return
+    render_topbar(default_date)
+    with st.container(key="control_deck"):
+        timeline, composite = st.columns([3, 2], gap="large", vertical_alignment="center")
+        with timeline:
+            as_of = render_time_machine(default_date)
+        with composite:
+            render_composite({"stress": stress_view.signal.score})
+    for offset in (0, 2):
+        columns = st.columns(2, gap=None)
+        for index, column in enumerate(columns, start=offset):
+            with column:
+                identity = PANEL_IDENTITIES[index]
+                if identity.key == "stress":
+                    render_connected_panel(
+                        identity,
+                        financial_stress,
+                        as_of,
+                        view=stress_view,
+                    )
+                else:
+                    render_placeholder(identity)
 
 
 def main() -> None:
     st.set_page_config(page_title="Recession Radar", layout="wide", initial_sidebar_state="collapsed")
     st.html(Path(__file__).parent / "assets" / "dashboard.css")
-    st.html('<div class="terminal-bar"><strong>RECESSION RADAR</strong><span>US / IRELAND</span><span class="layout-label">2 × 2</span></div>')
-    label, control = st.columns([5, 2], vertical_alignment="center")
-    with label:
-        st.html('<div class="workspace-label">WORKSPACE 01 <span> / FOUR PANEL VIEW</span></div>')
-    with control:
-        as_of = st.date_input("AS OF", value=date.today(), min_value=date(2006, 1, 1), max_value=date.today(), format="DD/MM/YYYY", key="as_of")
-    for offset in (0, 2):
-        columns = st.columns(2, gap="small")
-        for index, column in enumerate(columns, start=offset):
-            with column:
-                render_panel(PANELS[index], index + 1, as_of)
-    st.html('<div class="terminal-footer"><span>LAYOUT READY</span><span>DATA CONNECTIONS: 0 / 4</span></div>')
+    install_cursor()
+
+    if not st.session_state.get("dashboard_entered", False):
+        if render_intro():
+            st.session_state.dashboard_entered = True
+            st.rerun()
+        return
+
+    render_workspace()
 
 
 if __name__ == "__main__":

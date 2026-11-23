@@ -84,7 +84,29 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The current implementation is an empty terminal shell: four panes visible together, with a shared date input. Panel content, models, data connections, scores and the Recession Thermometer are future work.
+The app opens with a short project briefing and then enters a full-screen
+four-quadrant workspace. A shared time machine controls the historical cutoff
+for every panel, while the connected composite explicitly reports how many
+panels currently contribute to its reading.
+
+Panel 3 is connected to the Financial Stress analytical pipeline and can expand
+into a complete overview, interactive backtest, methodology and source-access
+page. Its default
+interface history is deterministically simulated and labelled as such so the
+layout remains reproducible offline. A user can request a live refresh from the
+expanded panel; public data degrades to runtime cache and then back to the
+labelled preview if a provider is unavailable.
+
+The panel aligns observations to completed Friday weeks, calculates causal
+156-week z-scores and combines five market channels into a documented weighted
+0–100 score. The backtest control lets a user change the alert threshold and
+immediately inspect recessions caught, false alarms, precision and median warning
+time. The Sources tab reports data coverage and lag, links every public series,
+and exports the full dated evidence table as CSV for independent checking.
+
+Panels 1, 2 and 4 intentionally remain presentation placeholders in the shared
+workspace. Their existing code is not deleted or represented as Rohi's work;
+their owners can connect each module to the same date and signal contract.
 
 ### Panel folders
 
@@ -95,6 +117,32 @@ The current implementation is an empty terminal shell: four panes visible togeth
 | Bottom left | `panels/financial_stress/` |
 | Bottom right | `panels/irish_lens/` |
 
-Each folder exports `TITLE` and `render(as_of: datetime.date)` from `__init__.py`. The shell calls that function inside its pane on every rerun. Add Streamlit controls and charts there, and keep supporting files within the same folder. Prefix widget keys with the panel name to avoid collisions. Empty render functions deliberately leave each pane blank.
+Each folder exports `TITLE` and `render(as_of: datetime.date)` from
+`__init__.py`. Add Streamlit controls and charts there, and keep supporting
+files within the same folder. Prefix widget keys with the panel name to avoid
+collisions. Once a panel is ready, connect it in `app.py` and pass its standard
+0–100 score into `render_composite`.
+
+### Interface ownership
+
+| Shared or panel area | Current contribution |
+| --- | --- |
+| Intro, cursor, time machine and four-panel layout | Rohi Aluede |
+| Financial Stress data, transformations, score and views | Rohi Aluede |
+| Bond Market analysis | Reserved for Luke O'Brien Peterson |
+| Labour Market analysis | Reserved for Tadhg Findon |
+| Irish Lens analysis | Reserved for Matthias Clark |
+
+Run the complete automated suite before pushing:
+
+```sh
+pytest -q
+```
+
+The Financial Stress tests separately cover public-source parsing and fallback,
+as-of-date enforcement, causal transformations, bounded scoring, recession and
+alert episode detection, false-alarm evaluation, provenance diagnostics and the
+offline presentation state. No API key is required for the labelled preview or
+for the test suite.
 
 Keep changes to the shared shell and dependencies coordinated with the group. Future data integrations must respect release availability at the selected date. Agree the scoring contract before implementing the Recession Thermometer. Store API keys in deployment secrets.
