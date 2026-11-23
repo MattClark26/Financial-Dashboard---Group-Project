@@ -133,9 +133,17 @@ def render(as_of: date) -> None:
 
     probability = probit_model.predict(latest_data).iloc[0] * 100
 
+    st.html("""
+    <style>
+    .st-key-panel_bond [data-testid="stExpander"] summary p {
+        color: #222222 !important;
+    }
+    </style>
+    """)
+
     with st.expander("Baseline Probit model"):
-        st.write(f"Estimated recession probability: {probability:.1f}%")
-        st.write("Regression coefficients:")
+        st.html(f'<p style="color: #222222;">Recession probability (next 12 months): {probability:.1f}%</p>')
+        st.html('<p style="color: #222222;">Regression coefficients:</p>')
         st.write(probit_model.params)
 
     with st.expander("Explore data table"):
