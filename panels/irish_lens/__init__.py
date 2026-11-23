@@ -557,7 +557,6 @@ def render_detail(as_of: date) -> None:
                     "The Irish Sahm indicator has not reached its "
                     "0.50-point trigger."
                 )
-                )
             else:
                 _render_conclusion(
                     f"The Irish Sahm indicator has crossed the "
