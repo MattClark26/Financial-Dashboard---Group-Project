@@ -486,9 +486,8 @@ def render_detail(as_of: date) -> None:
         </section>
         """
     )
-    overview, gdp_tab, sahm_tab, exports_tab, method, sources = st.tabs(
+    gdp_tab, sahm_tab, exports_tab, method, sources = st.tabs(
         [
-            "Overview",
             "GDP & MDD",
             "Irish Sahm Rule",
             "US Export Exposure",
@@ -510,20 +509,6 @@ def render_detail(as_of: date) -> None:
         selected_date,
     )
     export_exposure = _load_export_exposure(selected_date)
-
-    with overview:
-        st.html(
-            f"""
-            <div class="rr-section-head">
-              <span>IRISH LENS OVERVIEW</span>
-              <strong>CACHED DATA · AS OF {selected_date:%d %b %Y}</strong>
-            </div>
-            """
-        )
-        st.info(
-            "Use the GDP & MDD, Irish Sahm Rule and US Export Exposure "
-            "tabs for the detailed charts."
-        )
 
     with gdp_tab:
         if gdp.empty or mdd.empty:
