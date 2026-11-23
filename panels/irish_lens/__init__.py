@@ -526,21 +526,47 @@ def render_detail(as_of: date) -> None:
         )
 
     with gdp_tab:
-        st.plotly_chart(
+        if gdp.empty or mdd.empty:
+            st.info("GDP and MDD data are unavailable for this date.")
+        else:
+            st.plotly_chart(
             _plot_gdp_vs_mdd(gdp, mdd),
             width="stretch",
             config={"displayModeBar": False, "responsive": True},
             key="irish_gdp_mdd_tab",
         )
     with sahm_tab:
-        st.plotly_chart(
-            _plot_sahm_rule(sahm),
-            width="stretch",
-            config={"displayModeBar": False, "responsive": True},
-            key="irish_sahm_tab",
-        )
+        if unemployment.empty:
+            st.info("Irish unemployment data is unavailable for this date.")
+        else:
+            sahm = compute_sahm_rule(unemployment)
+            trigger_count = int(sahm["trigger"].fillna(False).sum())
+
+            st.plotly_chart(
+                _plot_sahm_rule(sahm),
+                width="stretch",
+                config={"displayModeBar": False, "responsive": True},
+                key="irish_sahm_tab",
+            )
+
+            if trigger_count == 0:
+                st.caption(
+                    "The Irish Sahm indicator has not reached "
+                    "its 0.50-point trigger."
+                )
+            else:
+                st.caption(
+                    f"The Irish Sahm indicator has crossed the "
+                    f"0.50-point trigger {trigger_count} time(s). "
+                    "This is a warning indicator, not proof of recession."
+                )
     with exports_tab:
-        st.plotly_chart(
+        if export_exposure.empty:
+            st.info(
+                "Irish export exposure data is unavailable for this date."
+            )
+        else:
+            st.plotly_chart(
             _plot_export_exposure(export_exposure),
             width="stretch",
             config={"displayModeBar": False, "responsive": True},
