@@ -14,6 +14,10 @@ def render_workspace() -> None:
     """Render the analytical workspace after the project briefing."""
     default_date = st.session_state.get("as_of", date.today())
     stress_view = financial_stress.load_financial_stress_view(default_date)
+    if st.session_state.get("active_panel") == "irish":
+        scroll_to_top()
+        irish_lens.render_detail(default_date)
+        return
     if st.session_state.get("active_panel") == "stress":
         scroll_to_top()
         financial_stress.render_detail(default_date, view=stress_view)
