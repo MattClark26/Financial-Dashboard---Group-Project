@@ -18,6 +18,16 @@ COMPONENT_COLUMNS = {
     "drawdown": "drawdown_z",
 }
 
+COMPONENT_WEIGHTS: Mapping[str, float] = MappingProxyType(
+    {
+        "ig_oas": 0.20,
+        "hy_oas": 0.25,
+        "vix": 0.20,
+        "stlfsi": 0.20,
+        "drawdown": 0.15,
+    }
+)
+
 
 @dataclass(frozen=True)
 class StressSignal:
@@ -42,6 +52,31 @@ def _score_zvalue(value: float) -> float:
     return max(0.0, min(100.0, 50.0 + float(value) * (50.0 / 3.0)))
 
 
+def score_history(analytics: FinancialStressAnalytics) -> pd.DataFrame:
+    """Build an auditable weekly score, breadth and component contribution table."""
+    available = {
+        key: column
+        for key, column in COMPONENT_COLUMNS.items()
+        if column in analytics.features.columns
+    }
+    if not available:
+        raise AnalyticsError("No standardised stress components are available to score.")
+
+    scores = pd.DataFrame(index=analytics.features.index)
+    for key, column in available.items():
+        scores[key] = analytics.features[column].map(
+            lambda value: _score_zvalue(value) if pd.notna(value) else float("nan")
+        )
+
+    weights = pd.Series({key: COMPONENT_WEIGHTS[key] for key in available})
+    valid_weights = scores.notna().mul(weights, axis="columns")
+    denominator = valid_weights.sum(axis=1).replace(0, float("nan"))
+    scores["score"] = scores.mul(weights, axis="columns").sum(axis=1) / denominator
+    scores["breadth"] = scores[list(available)].ge(67).sum(axis=1)
+    scores["available"] = scores[list(available)].notna().sum(axis=1)
+    return scores
+
+
 def score_financial_stress(analytics: FinancialStressAnalytics) -> StressSignal:
     """Score the latest available component values without future information."""
     available = {
@@ -52,20 +87,18 @@ def score_financial_stress(analytics: FinancialStressAnalytics) -> StressSignal:
     if not available:
         raise AnalyticsError("No standardised stress components are available to score.")
 
-    component_frame = analytics.features[list(available.values())].dropna(how="all")
-    if component_frame.empty:
+    history = score_history(analytics).dropna(subset=["score"])
+    if history.empty:
         raise AnalyticsError("Stress components need enough prior history to produce a score.")
 
-    latest = component_frame.iloc[-1]
+    latest = history.iloc[-1]
     components = {
-        key: _score_zvalue(latest[column])
-        for key, column in available.items()
-        if pd.notna(latest[column])
+        key: float(latest[key]) for key in available if pd.notna(latest[key])
     }
     if not components:
         raise AnalyticsError("The latest stress observation has no scoreable components.")
 
-    score = sum(components.values()) / len(components)
+    score = float(latest["score"])
     status = "ALERT" if score >= 67 else "WATCH" if score >= 34 else "CALM"
     elevated = sum(value >= 67 for value in components.values())
     if status == "ALERT":
@@ -84,7 +117,7 @@ def score_financial_stress(analytics: FinancialStressAnalytics) -> StressSignal:
             "relative to their trailing history."
         )
     return StressSignal(
-        as_of=component_frame.index[-1],
+        as_of=history.index[-1],
         score=score,
         status=status,
         verdict=verdict,

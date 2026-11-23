@@ -9,13 +9,13 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from .data import SERIES_SPECS
+from .evaluation import BacktestResult, evaluate_alerts
 from .presentation import FinancialStressView, load_financial_stress_view
 from .scoring import COMPONENT_COLUMNS, StressSignal
 
 
 def _history_figure(view: FinancialStressView, weeks: int = 104) -> go.Figure:
-    components = view.analytics.features[list(COMPONENT_COLUMNS.values())]
-    history = (50 + components.mean(axis=1) * (50 / 3)).clip(0, 100).dropna().tail(weeks)
+    history = view.history["score"].dropna().tail(weeks)
     figure = go.Figure()
     figure.add_trace(
         go.Scatter(
@@ -41,6 +41,17 @@ def _history_figure(view: FinancialStressView, weeks: int = 104) -> go.Figure:
         hoverlabel={"bgcolor": "#15130f", "font_color": "#f2eee6"},
     )
     return figure
+
+
+def _audit_table(view: FinancialStressView) -> pd.DataFrame:
+    """Create the dated evidence table offered to users for reproduction."""
+    raw = view.analytics.weekly.rename(
+        columns={column: f"raw_{column}" for column in view.analytics.weekly.columns}
+    )
+    standardised = view.analytics.features[list(COMPONENT_COLUMNS.values())]
+    scored = view.history[[*COMPONENT_COLUMNS, "score", "breadth", "available"]]
+    recession = view.recession_indicator.rename("us_recession")
+    return pd.concat([raw, standardised, scored, recession], axis=1).sort_index()
 
 
 def render_overview(
@@ -74,12 +85,20 @@ def render_overview(
         for key, value in signal.components.items()
     )
     st.html(f'<div class="rr-component-bars">{component_bars}</div>')
+    st.plotly_chart(
+        _history_figure(state),
+        width="stretch",
+        config={"displayModeBar": False, "responsive": True},
+        key="stress_overview_history",
+    )
     latest = state.analytics.features.iloc[-1]
+    latest_history = state.history.dropna(subset=["score"]).iloc[-1]
     st.html(
         f"""
         <div class="rr-metric-grid">
           <div class="rr-metric"><span>HY OAS Z</span><strong>{latest['hy_oas_z']:.2f}</strong></div>
           <div class="rr-metric"><span>VIX Z</span><strong>{latest['vix_z']:.2f}</strong></div>
+          <div class="rr-metric"><span>ALERT BREADTH</span><strong>{int(latest_history['breadth'])}/5</strong></div>
           <div class="rr-metric"><span>DATA MODE</span><strong>{state.mode}</strong></div>
         </div>
         """
@@ -138,6 +157,44 @@ def _component_figure(view: FinancialStressView) -> go.Figure:
     return figure
 
 
+def _backtest_figure(view: FinancialStressView, result: BacktestResult) -> go.Figure:
+    history = view.history["score"].dropna()
+    figure = go.Figure(
+        go.Scatter(
+            x=history.index,
+            y=history,
+            mode="lines",
+            name="Stress score",
+            line={"color": "#15130f", "width": 2},
+            hovertemplate="%{x|%d %b %Y}<br>Stress %{y:.0f}/100<extra></extra>",
+        )
+    )
+    for recession in result.recessions:
+        figure.add_vrect(
+            x0=recession.start,
+            x1=recession.end,
+            fillcolor="#d75f47",
+            opacity=0.14,
+            line_width=0,
+        )
+    figure.add_hline(
+        y=result.alert_threshold,
+        line_color="#d75f47",
+        line_dash="dash",
+        annotation_text=f"Alert {result.alert_threshold:.0f}",
+    )
+    figure.update_layout(
+        height=420,
+        margin={"l": 0, "r": 0, "t": 10, "b": 20},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
+        xaxis={"gridcolor": "#cbc3b6"},
+        yaxis={"gridcolor": "#cbc3b6", "range": [0, 100], "title": "Stress score"},
+    )
+    return figure
+
+
 def render_detail(as_of: date, *, view: FinancialStressView) -> None:
     """Render Rohi Aluede's full-page analysis with method and provenance."""
     actions = st.columns([1, 1, 4], vertical_alignment="center")
@@ -167,7 +224,9 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         </section>
         """
     )
-    overview, method, sources = st.tabs(["Overview", "Method", "Sources"])
+    overview, backtest, method, sources = st.tabs(
+        ["Overview", "Backtest", "Method", "Sources"]
+    )
     with overview:
         st.html(
             f"""
@@ -179,7 +238,7 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         )
         st.plotly_chart(
             _component_figure(state),
-            use_container_width=True,
+            width="stretch",
             config={"displayModeBar": False, "responsive": True},
             key="stress_detail_chart",
         )
@@ -193,6 +252,41 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         )
         st.html(f'<div class="rr-metric-grid">{component_items}</div>')
         st.info(state.note)
+
+    with backtest:
+        threshold = st.slider(
+            "Alert threshold",
+            min_value=50,
+            max_value=90,
+            value=67,
+            help="An alert must remain above this level for two consecutive weeks.",
+            key="stress_backtest_threshold",
+        )
+        result = evaluate_alerts(
+            state.history["score"],
+            state.recession_indicator,
+            threshold=threshold,
+        )
+        lead = (
+            f"{result.median_lead_weeks:.0f} weeks"
+            if result.median_lead_weeks is not None
+            else "No matched alert"
+        )
+        metrics = st.columns(4)
+        metrics[0].metric("Recessions caught", f"{result.hits}/{len(result.recessions)}")
+        metrics[1].metric("False alarms", result.false_alarms)
+        metrics[2].metric("Alert precision", f"{result.precision:.0%}")
+        metrics[3].metric("Median warning", lead)
+        st.plotly_chart(
+            _backtest_figure(state, result),
+            width="stretch",
+            config={"displayModeBar": False, "responsive": True},
+            key="stress_backtest_chart",
+        )
+        st.caption(
+            "Red bands mark recession episodes. Results are descriptive historical "
+            "evidence, not a claim that financial stress causes recessions."
+        )
 
     with method:
         st.html(
@@ -213,18 +307,23 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
               <article class="rr-method-card">
                 <span>03 / SCORE</span>
                 <strong>Transparent 0–100</strong>
-                <p>Five equally directed components are bounded and averaged,
+                <p>Five equally directed components are bounded and weighted,
                 then mapped to calm, watch and alert zones.</p>
               </article>
             </div>
             """
         )
         st.code(
-            "score = mean(clip(50 + component_z × 50/3, 0, 100))",
+            "score = weighted_mean(clip(50 + component_z × 50/3, 0, 100))",
             language="python",
         )
 
     with sources:
+        quality_columns = st.columns(4)
+        quality_columns[0].metric("Data quality", state.quality.label)
+        quality_columns[1].metric("Series available", f"{state.quality.available_series}/6")
+        quality_columns[2].metric("Coverage", f"{state.quality.coverage_percent:.0f}%")
+        quality_columns[3].metric("Maximum lag", f"{state.quality.maximum_lag_days} days")
         source_rows = [
             {
                 "Measure": spec.label,
@@ -235,12 +334,12 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
                 "Source": spec.source_url,
             }
             for key, spec in SERIES_SPECS.items()
-            if key in {"ig_oas", "hy_oas", "vix", "stlfsi", "sp500"}
+            if key in {"ig_oas", "hy_oas", "vix", "stlfsi", "sp500", "us_recession"}
         ]
         st.dataframe(
             pd.DataFrame(source_rows),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "Source": st.column_config.LinkColumn("Source"),
             },
@@ -248,4 +347,16 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         st.caption(
             "Runtime cache files are used when a public endpoint is temporarily "
             "unavailable. The selected date is enforced before transformation."
+        )
+        audit = _audit_table(state)
+        st.download_button(
+            "Download dated panel evidence (CSV)",
+            data=audit.to_csv(index_label="date"),
+            file_name=f"financial-stress-evidence-{signal.as_of:%Y-%m-%d}.csv",
+            mime="text/csv",
+            key="stress_download_evidence",
+        )
+        st.caption(
+            "The export includes raw inputs, causal z-scores, component scores, "
+            "the composite score, alert breadth and recession reference labels."
         )

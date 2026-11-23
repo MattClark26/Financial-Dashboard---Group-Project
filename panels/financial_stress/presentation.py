@@ -14,12 +14,15 @@ from .analytics import (
     prepare_stress_analytics,
 )
 from .data import (
+    PANEL_SERIES_KEYS,
     DataAccessError,
     fetch_fred_series,
     fetch_yahoo_series,
     load_financial_stress_data,
 )
-from .scoring import StressSignal, score_financial_stress
+from .diagnostics import DataQuality, assess_data_quality, demo_data_quality
+from .evaluation import BacktestResult, evaluate_alerts
+from .scoring import StressSignal, score_financial_stress, score_history
 
 
 @dataclass(frozen=True)
@@ -28,6 +31,10 @@ class FinancialStressView:
 
     analytics: FinancialStressAnalytics
     signal: StressSignal
+    history: pd.DataFrame
+    recession_indicator: pd.Series
+    backtest: BacktestResult
+    quality: DataQuality
     mode: str
     note: str
 
@@ -38,6 +45,18 @@ class FinancialStressView:
 
 def _gaussian(values: np.ndarray, centre: float, width: float) -> np.ndarray:
     return np.exp(-np.square(values - centre) / (2 * width * width))
+
+
+def build_demo_recession_indicator(index: pd.DatetimeIndex) -> pd.Series:
+    """Return deterministic NBER-style labels for the illustrative history."""
+    periods = (
+        (pd.Timestamp("2007-12-01"), pd.Timestamp("2009-06-30")),
+        (pd.Timestamp("2020-02-01"), pd.Timestamp("2020-04-30")),
+    )
+    values = pd.Series(0.0, index=index, name="us_recession")
+    for start, end in periods:
+        values.loc[(values.index >= start) & (values.index <= end)] = 1.0
+    return values
 
 
 def build_demo_analytics(as_of: pd.Timestamp) -> FinancialStressAnalytics:
@@ -87,6 +106,7 @@ def load_financial_stress_view(
         try:
             dataset = load_financial_stress_data(
                 cutoff,
+                keys=(*PANEL_SERIES_KEYS, "us_recession"),
                 allow_live=True,
                 fetchers={
                     "fred": lambda spec, date: fetch_fred_series(
@@ -99,9 +119,21 @@ def load_financial_stress_view(
             )
             analytics = prepare_stress_analytics(dataset)
             signal = score_financial_stress(analytics)
+            history = score_history(analytics)
+            recession = (
+                dataset.series["us_recession"]
+                .values.resample("W-FRI")
+                .ffill()
+                .reindex(history.index, method="ffill")
+                .fillna(0)
+            )
             return FinancialStressView(
                 analytics=analytics,
                 signal=signal,
+                history=history,
+                recession_indicator=recession,
+                backtest=evaluate_alerts(history["score"], recession),
+                quality=assess_data_quality(dataset, expected_series=6),
                 mode="LIVE PUBLIC DATA",
                 note="Public FRED and market series, cut off at the selected date.",
             )
@@ -117,9 +149,15 @@ def load_financial_stress_view(
         )
 
     analytics = build_demo_analytics(cutoff)
+    history = score_history(analytics)
+    recession = build_demo_recession_indicator(history.index)
     return FinancialStressView(
         analytics=analytics,
         signal=score_financial_stress(analytics),
+        history=history,
+        recession_indicator=recession,
+        backtest=evaluate_alerts(history["score"], recession),
+        quality=demo_data_quality(cutoff),
         mode="SIMULATED PREVIEW",
         note=fallback_note,
     )

@@ -1,9 +1,10 @@
+
 from datetime import date
 from pathlib import Path
 
 import streamlit as st
 
-from panels import bond_market, financial_stress
+from panels import bond_market, financial_stress, irish_lens
 from ui.controls import render_time_machine
 from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
@@ -69,13 +70,24 @@ def render_workspace() -> None:
                     )
 
                 elif identity.key == "bond":
-                    render_connected_panel(identity, bond_market, as_of)
+                    render_connected_panel(
+                        identity,
+                        bond_market,
+                        as_of
+                    )
 
                     st.button(
                         "Explore Bond Market",
                         key="bond_market_open",
-                        use_container_width=True,
+                        width="stretch",
                         on_click=open_bond_market
+                    )
+
+                elif identity.key == "irish":
+                    render_connected_panel(
+                        identity,
+                        irish_lens,
+                        as_of
                     )
 
                 else:
