@@ -320,7 +320,7 @@ def _plot_export_exposure(exposure: pd.DataFrame) -> go.Figure:
             _plot_export_exposure(export_exposure),
             width="stretch",
         )
-                latest_share = export_exposure["US Share (%)"].iloc[-1]
+        latest_share = export_exposure["US Share (%)"].iloc[-1]
         latest_average = export_exposure["12-month average (%)"].dropna()
 
         if latest_average.empty:
