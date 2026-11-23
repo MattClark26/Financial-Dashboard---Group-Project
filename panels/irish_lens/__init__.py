@@ -350,6 +350,17 @@ def _plot_export_exposure(exposure: pd.DataFrame) -> go.Figure:
         },
    }
 
+def _render_conclusion(text: str) -> None:
+    """Render a readable Panel 4 conclusion beneath a chart."""
+    st.html(
+        f"""
+        <div class="rr-conclusion">
+          <strong>CONCLUSION</strong>
+          <p>{text}</p>
+        </div>
+        """
+    )
+    
 def render(as_of: date) -> dict:
     """Render the compact Irish Lens quadrant."""
     selected_date = pd.Timestamp(as_of)
@@ -520,13 +531,13 @@ def render_detail(as_of: date) -> None:
                config={"displayModeBar": False, "responsive": True},
                key="irish_gdp_mdd_tab",
             )
-            st.caption(
+            _render_conclusion(
                 "Headline GDP has risen sharply compared with 2014 Q4, "
                 "while Modified Domestic Demand provides a steadier view "
                 "of domestic activity. GDP can include multinational "
                 "distortions."
             )
-
+            
     with sahm_tab:
         if unemployment.empty:
             st.info("Irish unemployment data is unavailable for this date.")
@@ -542,12 +553,13 @@ def render_detail(as_of: date) -> None:
             )
 
             if trigger_count == 0:
-                st.caption(
-                    "The Irish Sahm indicator has not reached "
-                    "its 0.50-point trigger."
+                _render_conclusion(
+                    "The Irish Sahm indicator has not reached its "
+                    "0.50-point trigger."
+                )
                 )
             else:
-                st.caption(
+                _render_conclusion(
                     f"The Irish Sahm indicator has crossed the "
                     f"0.50-point trigger {trigger_count} time(s). "
                     "This is a warning indicator, not proof of recession."
@@ -572,7 +584,7 @@ def render_detail(as_of: date) -> None:
             ].dropna()
 
             if rolling_average.empty:
-                st.caption(
+                _render_conclusion(
                     f"The latest US share of Irish exports is "
                     f"{latest_share:.1f}%. "
                     "This indicates exposure, not proof that a US "
@@ -580,12 +592,13 @@ def render_detail(as_of: date) -> None:
                 )
             else:
                 latest_average = float(rolling_average.iloc[-1])
-                st.caption(
+                _render_conclusion(
                     f"The latest US share of Irish exports is "
                     f"{latest_share:.1f}%, with a 12-month average of "
                     f"{latest_average:.1f}%. "
                     "This indicates exposure, not proof that a US "
                     "downturn will cause an Irish recession."
+                )
                 )
     with method:
         st.html(
