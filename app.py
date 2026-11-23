@@ -3,7 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from panels import financial_stress
+from panels import financial_stress, irish_lens
 from ui.controls import render_time_machine
 from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
@@ -36,6 +36,12 @@ def render_workspace() -> None:
                         financial_stress,
                         as_of,
                         view=stress_view,
+                    )
+                elif identity.key == "irish":
+                    render_connected_panel(
+                        identity,
+                        irish_lens,
+                        as_of,
                     )
                 else:
                     render_placeholder(identity)
