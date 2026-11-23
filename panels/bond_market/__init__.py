@@ -25,7 +25,6 @@ def render(as_of: date) -> None:
 
     try:
         data = pd.read_csv(url, index_col=0, parse_dates=True, na_values=".")
-
     except Exception:
         data = pd.read_csv(backup, index_col=0, parse_dates=True, na_values=".")
         st.info("Using saved FRED data.")
@@ -71,77 +70,72 @@ def render(as_of: date) -> None:
         hovertemplate="Date: %{x|%d %B %Y}<br>Spread: %{y:.2f}<extra></extra>"
     )
 
-    fig.update_layout(height=300, xaxis_title=None, yaxis_title="Percentage points")
+    fig.update_layout(
+        height=300,
+        xaxis_title=None,
+        yaxis_title="Percentage points"
+    )
 
-    fig.update_xaxes(dtick="M60", tick0="1980-01-01", tickformat="%Y")
+    fig.update_xaxes(
+        dtick="M60",
+        tick0="1980-01-01",
+        tickformat="%Y"
+    )
 
     st.plotly_chart(fig, width="stretch")
 
     st.html(f'<p style="color: #222222;">{signal}</p>')
 
+
     # Probit model
 
     folder = Path(__file__).resolve().parents[2] / "data"
 
-    series_names = ["T10Y3M", "T10Y2Y", "USREC"]
-    datasets = []
+    datasets = {}
 
-    for name in series_names:
+    for name in ["T10Y3M", "USREC"]:
         url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={name}"
 
         try:
             df = pd.read_csv(url, index_col=0, parse_dates=True, na_values=".")
         except Exception:
-            df = pd.read_csv(folder / f"{name}.csv", index_col=0, parse_dates=True, na_values=".")
+            df = pd.read_csv(folder / f"{name}.csv",
+                             index_col=0, parse_dates=True, na_values=".")
 
-        datasets.append(df)
+        datasets[name] = df
 
-    spread_3m, spread_2y, recessions = datasets
+    spread = datasets["T10Y3M"].resample("ME").mean()
+    recession = datasets["USREC"].resample("ME").last()
 
-    spread_3m = spread_3m.resample("ME").last()
-    spread_2y = spread_2y.resample("ME").last()
-    recessions = recessions.resample("ME").last()
+    model_data = spread.join(recession).dropna()
 
-    model_data = spread_3m.join(spread_2y).join(recessions)
+    model_data["recession_12m"] = model_data["USREC"].shift(-12)
 
-    model_data = model_data.dropna()
-    model_data = model_data[model_data.index <= pd.Timestamp(as_of)]
+    regression_data = model_data.dropna(subset=["recession_12m"])
 
-    recession_start = (model_data["USREC"] == 1) & (model_data["USREC"].shift(1) == 0)
-
-    model_data["recession_next_12m"] = False
-
-    for month in range(1, 13):
-        model_data["recession_next_12m"] |= recession_start.shift(-month, fill_value=False)
-
-    model_data["recession_next_12m"] = model_data["recession_next_12m"].astype("Int64")
-    model_data.loc[model_data.index[-12:], "recession_next_12m"] = pd.NA
-
-    training_data = model_data.dropna(subset=["recession_next_12m"])
-
-    X = training_data[["T10Y3M", "T10Y2Y"]]
-
+    X = regression_data[["T10Y3M"]]
     X = sm.add_constant(X)
 
-    y = training_data["recession_next_12m"].astype(int)
+    y = regression_data["recession_12m"].astype(int)
 
-    split = int(len(training_data) * 0.8)
+    model = sm.Probit(y, X).fit(disp=False)
 
-    test_data = training_data.iloc[split:]
+    correlation = regression_data["T10Y3M"].corr(y)
 
-    train_data = training_data.iloc[:split - 12]
+    cutoff = pd.Timestamp(as_of)
 
-    with st.expander("Model testing periods"):
-        st.html(f'<p style="color: #222222;">Training observations: {len(train_data)}</p>')
-        st.html(f'<p style="color: #222222;">Testing observations: {len(test_data)}</p>')
+    if cutoff != cutoff + pd.offsets.MonthEnd(0):
+        cutoff = cutoff - pd.offsets.MonthEnd(1)
 
-    probit_model = sm.Probit(y, X).fit(disp=False)
+    selected_data = spread[spread.index <= cutoff].dropna().tail(1)
 
-    latest_data = model_data[["T10Y3M", "T10Y2Y"]].tail(1)
+    if selected_data.empty:
+        st.warning("No Treasury spread data available for this date.")
+        return
 
-    latest_data = sm.add_constant(latest_data, has_constant="add")
+    latest_X = sm.add_constant(selected_data, has_constant="add")
 
-    probability = probit_model.predict(latest_data).iloc[0] * 100
+    probability = model.predict(latest_X).iloc[0] * 100
 
     st.html("""
     <style>
@@ -151,10 +145,54 @@ def render(as_of: date) -> None:
     </style>
     """)
 
-    with st.expander("Baseline Probit model"):
-        st.html(f'<p style="color: #222222;">Recession probability (next 12 months): {probability:.1f}%</p>')
+    with st.expander("Probit regression"):
+        st.html(
+            f'<p style="color: #222222;">'
+            f'Recession probability (12 months ahead): {probability:.1f}%'
+            f'</p>'
+        )
+
+        st.html(
+            f'<p style="color: #222222;">'
+            f'Historical correlation: {correlation:.3f}'
+            f'</p>'
+        )
+
         st.html('<p style="color: #222222;">Regression coefficients:</p>')
-        st.write(probit_model.params)
+        st.write(model.params)
+
+    with st.expander("Historical regression table"):
+
+        historical = model_data[model_data.index <= cutoff].copy()
+
+        X_history = sm.add_constant(
+            historical[["T10Y3M"]],
+            has_constant="add"
+        )
+
+        historical["Estimated probability (%)"] = (
+            model.predict(X_history) * 100
+        ).round(2)
+
+        historical["Actual recession"] = historical["recession_12m"].astype("Int64")
+
+        historical.loc[
+            historical.index + pd.DateOffset(months=12) > cutoff,
+            "Actual recession"
+        ] = pd.NA
+
+        table = historical[
+            ["T10Y3M", "Estimated probability (%)", "Actual recession"]
+        ].dropna(subset=["Actual recession"]).tail(12)
+
+
+        table.index = table.index.strftime("%b %Y")
+        table.index.name = "Month"
+
+        st.dataframe(table, width="stretch")
 
     with st.expander("Explore data table"):
-        st.dataframe(model_data.tail(12), width="stretch")
+        st.dataframe(
+            model_data[model_data.index <= cutoff].tail(12),
+            width="stretch"
+        )
