@@ -515,11 +515,18 @@ def render_detail(as_of: date) -> None:
             st.info("GDP and MDD data are unavailable for this date.")
         else:
             st.plotly_chart(
-            _plot_gdp_vs_mdd(gdp, mdd),
-            width="stretch",
-            config={"displayModeBar": False, "responsive": True},
-            key="irish_gdp_mdd_tab",
-        )
+               _plot_gdp_vs_mdd(gdp, mdd),
+               width="stretch",
+               config={"displayModeBar": False, "responsive": True},
+               key="irish_gdp_mdd_tab",
+            )
+            st.caption(
+                "Headline GDP has risen sharply compared with 2014 Q4, "
+                "while Modified Domestic Demand provides a steadier view "
+                "of domestic activity. GDP can include multinational "
+                "distortions."
+            )
+
     with sahm_tab:
         if unemployment.empty:
             st.info("Irish unemployment data is unavailable for this date.")
@@ -552,12 +559,33 @@ def render_detail(as_of: date) -> None:
             )
         else:
             st.plotly_chart(
-            _plot_export_exposure(export_exposure),
-            width="stretch",
-            config={"displayModeBar": False, "responsive": True},
-            key="irish_export_tab",
-        )
+               _plot_export_exposure(export_exposure),
+               width="stretch",
+               config={"displayModeBar": False, "responsive": True},
+               key="irish_export_tab",
+            )
+            latest_share = float(
+                export_exposure["US Share (%)"].iloc[-1]
+            )
+            rolling_average = export_exposure[
+                "12-month average (%)"
+            ].dropna()
 
+            if rolling_average.empty:
+                st.caption(
+                    f"The latest US share of Irish exports is "
+                    f"{latest_share:.1f}%. "
+                    "This indicates exposure, not proof that a US "
+                    "downturn will cause an Irish recession."
+                )
+            else:
+                latest_average = float(rolling_average.iloc[-1])
+                st.caption(
+                    f"The latest US share of Irish exports is "
+                    f"{latest_share:.1f}%, with a 12-month average of "
+                    f"{latest_average:.1f}%. "
+                    "This indicates exposure, not proof that a US "
+                    "downturn will cause an Irish recession."
     with method:
         st.html(
             """
