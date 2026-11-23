@@ -334,9 +334,10 @@ def render(as_of: date) -> dict:
                 width="stretch",
             )
             st.caption(
-                "Headline Irish GDP surged in 2015 because of multinational "
-                "intellectual-property onshoring and aircraft-leasing transfers, "
-                "while Modified Domestic Demand better reflects domestic activity."
+                "Headline GDP rose sharply after 2014, while Modified Domestic "
+                "Demand grew more steadily. GDP can include multinational "
+                "distortions (multinational intellectual-property onshoring "
+                "and aircraft-leasing transfers), so MDD is a better guide to domestic activity."
             )
         else:
             st.info(
