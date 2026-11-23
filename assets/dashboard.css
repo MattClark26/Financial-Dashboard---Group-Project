@@ -725,3 +725,27 @@ input:focus-visible {
         transition-duration: .01ms !important;
     }
 }
+
+.rr-conclusion {
+    margin: 1rem 0 1.25rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--rr-line-dark);
+    border-left: 0.35rem solid var(--rr-yellow);
+    background: var(--rr-paper-deep);
+    color: var(--rr-ink);
+}
+
+.rr-conclusion strong {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--rr-muted);
+    font: 0.72rem var(--rr-mono);
+    letter-spacing: 0.08em;
+}
+
+.rr-conclusion p {
+    margin: 0;
+    color: var(--rr-ink);
+    font-size: 1rem;
+    line-height: 1.45;
+}
