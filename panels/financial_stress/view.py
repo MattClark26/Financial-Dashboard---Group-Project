@@ -14,8 +14,7 @@ from .scoring import COMPONENT_COLUMNS, StressSignal
 
 
 def _history_figure(view: FinancialStressView, weeks: int = 104) -> go.Figure:
-    components = view.analytics.features[list(COMPONENT_COLUMNS.values())]
-    history = (50 + components.mean(axis=1) * (50 / 3)).clip(0, 100).dropna().tail(weeks)
+    history = view.history["score"].dropna().tail(weeks)
     figure = go.Figure()
     figure.add_trace(
         go.Scatter(
@@ -74,12 +73,20 @@ def render_overview(
         for key, value in signal.components.items()
     )
     st.html(f'<div class="rr-component-bars">{component_bars}</div>')
+    st.plotly_chart(
+        _history_figure(state),
+        use_container_width=True,
+        config={"displayModeBar": False, "responsive": True},
+        key="stress_overview_history",
+    )
     latest = state.analytics.features.iloc[-1]
+    latest_history = state.history.dropna(subset=["score"]).iloc[-1]
     st.html(
         f"""
         <div class="rr-metric-grid">
           <div class="rr-metric"><span>HY OAS Z</span><strong>{latest['hy_oas_z']:.2f}</strong></div>
           <div class="rr-metric"><span>VIX Z</span><strong>{latest['vix_z']:.2f}</strong></div>
+          <div class="rr-metric"><span>ALERT BREADTH</span><strong>{int(latest_history['breadth'])}/5</strong></div>
           <div class="rr-metric"><span>DATA MODE</span><strong>{state.mode}</strong></div>
         </div>
         """
