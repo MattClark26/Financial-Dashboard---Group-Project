@@ -571,7 +571,7 @@ def render(as_of: date) -> dict:
               <p class="rr-panel-summary">{verdict}</p>
             </div>
             <div class="rr-score">
-              <strong>{panel_signal["score"]:.0f}</strong><span>/100</span>
+              <strong>{panel_signal["score"]:.0f}</strong><span>/100· {panel_signal["status"]}</span>
             </div>
           </div>
         </div>
