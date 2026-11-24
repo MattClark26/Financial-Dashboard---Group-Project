@@ -11,7 +11,7 @@ import streamlit as st
 from .data import SERIES_SPECS
 from .evaluation import BacktestResult, evaluate_alerts
 from .presentation import FinancialStressView, load_financial_stress_view
-from .scoring import COMPONENT_COLUMNS, StressSignal
+from .scoring import COMPONENT_COLUMNS, COMPONENT_WEIGHTS, StressSignal, score_history
 
 
 def _history_figure(view: FinancialStressView, weeks: int = 104) -> go.Figure:
@@ -218,8 +218,8 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         </section>
         """
     )
-    overview, backtest, method, sources = st.tabs(
-        ["Overview", "Backtest", "Method", "Sources"]
+    overview, backtest, sensitivity, method, sources = st.tabs(
+        ["Overview", "Backtest", "Sensitivity", "Method", "Sources"]
     )
     with overview:
         st.html(
@@ -280,6 +280,48 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         st.caption(
             "Red bands mark recession episodes. Results are descriptive historical "
             "evidence, not a claim that financial stress causes recessions."
+        )
+
+    with sensitivity:
+        st.subheader("Does the conclusion depend on one weighting choice?")
+        preset = st.radio(
+            "Weighting scenario",
+            ["Baseline", "Equal weights", "Credit-heavy"],
+            horizontal=True,
+            key="stress_weighting_scenario",
+        )
+        scenarios = {
+            "Baseline": dict(COMPONENT_WEIGHTS),
+            "Equal weights": {key: 0.20 for key in COMPONENT_COLUMNS},
+            "Credit-heavy": {
+                "ig_oas": 0.25,
+                "hy_oas": 0.35,
+                "vix": 0.15,
+                "stlfsi": 0.15,
+                "drawdown": 0.10,
+            },
+        }
+        scenario_weights = scenarios[preset]
+        scenario_history = score_history(state.analytics, weights=scenario_weights)
+        latest_scenario = float(scenario_history["score"].dropna().iloc[-1])
+        difference = latest_scenario - signal.score
+        columns = st.columns(3)
+        columns[0].metric("Scenario score", f"{latest_scenario:.1f} / 100")
+        columns[1].metric("Baseline score", f"{signal.score:.1f} / 100")
+        columns[2].metric("Difference", f"{difference:+.1f} points")
+        st.dataframe(
+            pd.DataFrame(
+                {
+                    "Component": [key.replace("_", " ").upper() for key in scenario_weights],
+                    "Weight": [f"{value:.0%}" for value in scenario_weights.values()],
+                }
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+        st.caption(
+            "A robust signal should not change category solely because of a reasonable "
+            "alternative weighting. This check changes weights only; it does not refit history."
         )
 
     with method:

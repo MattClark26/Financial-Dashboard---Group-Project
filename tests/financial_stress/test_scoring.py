@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from panels.financial_stress.analytics import FinancialStressAnalytics, build_stress_features
 from panels.financial_stress.scoring import (
@@ -73,3 +74,25 @@ def test_history_exposes_weighted_score_and_alert_breadth(
     assert sum(COMPONENT_WEIGHTS.values()) == 1
     assert history["score"].between(0, 100).all()
     assert history["breadth"].between(0, 5).all()
+
+
+def test_score_history_supports_auditable_weight_scenarios(
+    synthetic_market_series: dict[str, pd.Series],
+) -> None:
+    weekly = pd.DataFrame(synthetic_market_series)
+    analytics = FinancialStressAnalytics(
+        as_of=weekly.index.max(),
+        weekly=weekly,
+        features=build_stress_features(weekly, window=104, min_history=26),
+        z_window=104,
+        min_history=26,
+    )
+
+    credit_only = score_history(
+        analytics,
+        weights={"ig_oas": 0.4, "hy_oas": 0.6},
+    ).dropna(subset=["score"])
+
+    assert credit_only["score"].between(0, 100).all()
+    with pytest.raises(ValueError, match="positive weight"):
+        score_history(analytics, weights={key: 0 for key in COMPONENT_WEIGHTS})
