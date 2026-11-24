@@ -248,27 +248,6 @@ def render_full(as_of: date) -> None:
         st.html('<p style="color: #222222;">Regression coefficients:</p>')
         st.write(model.params)
 
-        if st.button("Create / update shared CSV", key="bond_export_probabilities"):
-            export_table = all_probabilities[
-                all_probabilities.index <= pd.Timestamp(date.today())
-            ].to_frame(name="Recession Probability (%)")
-            export_table["Actual recession 12 months later"] = (
-                model_data["recession_12m"].astype("Int64")
-            )
-            export_table["Actual recession 12 months later"] = (
-                export_table["Actual recession 12 months later"]
-                .astype("string")
-                .fillna("N/A")
-            )
-            export_table = export_table.rename_axis("Date").reset_index()
-            export_table["Date"] = export_table["Date"].dt.strftime("%Y-%m-%d")
-
-            try:
-                export_table.to_csv(PROBABILITY_CACHE, index=False)
-                st.success("Saved data/us_recession_probability.csv for your group.")
-            except OSError as error:
-                st.error(f"Could not save CSV: {error}")
-
         with st.expander("Baseline historical recession probabilities"):
             probability_table = all_probabilities.to_frame(
                 name="Estimated probability (%)"
