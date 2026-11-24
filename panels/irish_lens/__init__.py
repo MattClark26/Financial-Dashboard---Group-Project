@@ -365,6 +365,74 @@ def _render_conclusion(text: str) -> None:
         </div>
         """
     )
+
+def _bound(value: float) -> float:
+    """Keep a component score between 0 and 100."""
+    return max(0.0, min(100.0, float(value)))
+
+
+def score_irish_lens(
+    sahm_indicator: float | None,
+    export_share: float | None,
+    recession_probability: float | None,
+    gdp_index: float | None,
+    mdd_index: float | None,
+) -> dict:
+    components = {}
+    weights = {
+        "us_recession_probability": 0.35,
+        "irish_sahm": 0.25,
+        "us_export_share": 0.25,
+        "gdp_mdd_divergence": 0.15,
+    }
+
+    if recession_probability is not None:
+        components["us_recession_probability"] = _bound(
+            recession_probability
+        )
+
+    if sahm_indicator is not None:
+        components["irish_sahm"] = _bound(
+            sahm_indicator / 0.50 * 67
+        )
+
+    if export_share is not None:
+        components["us_export_share"] = _bound(
+            (export_share - 20) / 20 * 100
+        )
+
+    if gdp_index is not None and mdd_index is not None:
+        divergence = abs(gdp_index - mdd_index)
+        components["gdp_mdd_divergence"] = _bound(
+            divergence / 50 * 100
+        )
+
+    if not components:
+        return {
+            "score": 0.0,
+            "status": "WATCH",
+            "components": {},
+        }
+
+    available_weight = sum(weights[key] for key in components)
+    score = sum(
+        components[key] * weights[key]
+        for key in components
+    ) / available_weight
+
+    status = (
+        "ALERT"
+        if score >= 67
+        else "WATCH"
+        if score >= 34
+        else "CALM"
+    )
+
+    return {
+        "score": round(score, 1),
+        "status": status,
+        "components": components,
+    }
     
 def render(as_of: date) -> dict:
     """Render the compact Irish Lens quadrant."""
@@ -383,6 +451,47 @@ def render(as_of: date) -> dict:
         selected_date,
     )
     export_exposure = _load_export_exposure(selected_date)
+    recession_probability = load_recession_probability(selected_date)
+
+    sahm_indicator = None
+    if not unemployment.empty:
+        sahm = compute_sahm_rule(unemployment)
+        if not sahm["sahm_indicator"].dropna().empty:
+            sahm_indicator = float(
+                sahm["sahm_indicator"].dropna().iloc[-1]
+            )
+
+    latest_export_share = None
+    if not export_exposure.empty:
+        rolling_average = export_exposure[
+            "12-month average (%)"
+        ].dropna()
+        if not rolling_average.empty:
+            latest_export_share = float(rolling_average.iloc[-1])
+
+    latest_recession_probability = None
+    if not recession_probability.empty:
+        latest_recession_probability = float(
+            recession_probability.iloc[-1]
+        )
+
+    gdp_index = None
+    mdd_index = None
+    if not gdp.empty and not mdd.empty:
+        baseline_date = pd.Timestamp("2014-12-31")
+        gdp_baseline = gdp[gdp.index <= baseline_date]
+        mdd_baseline = mdd[mdd.index <= baseline_date]
+        if not gdp_baseline.empty and not mdd_baseline.empty:
+            gdp_index = float(gdp.iloc[-1] / gdp_baseline.iloc[-1] * 100)
+            mdd_index = float(mdd.iloc[-1] / mdd_baseline.iloc[-1] * 100)
+
+    panel_signal = score_irish_lens(
+        sahm_indicator=sahm_indicator,
+        export_share=latest_export_share,
+        recession_probability=latest_recession_probability,
+        gdp_index=gdp_index,
+        mdd_index=mdd_index,
+    )
 
     trigger_count = 0
     if not unemployment.empty:
