@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 
 import streamlit as st
+import pandas as pd
 
 from panels import bond_market, financial_stress, irish_lens
 from ui.controls import render_time_machine
@@ -61,7 +62,13 @@ def render_workspace() -> None:
             as_of = render_time_machine(default_date)
 
         with composite:
-            render_composite({"stress": stress_view.signal.score})
+            irish_signal = irish_lens.load_irish_lens_signal(
+                pd.Timestamp(as_of)
+            )
+            render_composite({
+                "stress": stress_view.signal.score,
+                "irish": irish_signal["score"],
+            })
 
     for offset in (0, 2):
         columns = st.columns(2, gap=None)
