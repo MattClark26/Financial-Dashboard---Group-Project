@@ -27,7 +27,7 @@ def render_intro() -> bool:
           </h1>
           <p class="rr-intro-lede">
             Recession Radar brings bond, labour, financial-market and Irish
-            exposure signals into one time-aware view—without hiding the
+            exposure signals into one time-aware view without hiding the
             evidence behind a single score.
           </p>
         </section>

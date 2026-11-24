@@ -80,7 +80,7 @@ def render_placeholder(identity: PanelIdentity) -> None:
             </div>
             <div class="rr-panel-foot">
               <span>AWAITING PANEL CONTRACT</span>
-              <span>WEIGHT —</span>
+              <span>WEIGHT: NOT SET</span>
             </div>
             """
         )

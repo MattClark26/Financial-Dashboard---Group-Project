@@ -202,89 +202,128 @@ def render_signal_lab(view: FinancialStressView) -> None:
         "return and risk. It is an explanatory backtest, not investment advice."
     )
 
-    terrain, strategies, phases, glossary = st.tabs(
-        ["3D signal terrain", "Strategy comparison", "Recession phases", "Definitions"]
+    st.subheader("Five-dimensional stress surface")
+    st.write(
+        "Start here. The surface puts every Financial Stress channel on the same "
+        "0 to 100 scale, making it possible to see whether pressure is isolated or "
+        "spreading across credit, volatility, the Fed stress index and equity drawdown."
     )
-    with terrain:
-        st.subheader("Five-dimensional stress surface")
-        st.write(
-            "Height is the 0–100 stress score for each market channel. Yellow surface "
-            "sections are non-recession weeks and red sections coincide with NBER "
-            "recession labels. Rotate, zoom and hover to inspect individual weeks."
-        )
-        st.plotly_chart(
-            _terrain_figure(view),
-            width="stretch",
-            config={"displayModeBar": True, "responsive": True},
-            key="signal_lab_terrain",
-        )
+    st.plotly_chart(
+        _terrain_figure(view),
+        width="stretch",
+        config={"displayModeBar": True, "responsive": True},
+        key="signal_lab_terrain",
+    )
 
-    with strategies:
-        st.subheader("Three transparent exposure rules")
-        st.write(
-            "Buy & hold remains fully invested. Stress-scaled exposure falls gradually "
-            "as the composite rises. Alert reducer uses 100% exposure in CALM, 65% in "
-            "WATCH and 25% in ALERT. Every rule uses the previous week's score to avoid "
-            "look-ahead bias; cash is modelled at 0% and costs are omitted."
-        )
-        st.plotly_chart(
-            _wealth_figure(result),
-            width="stretch",
-            config={"displayModeBar": False, "responsive": True},
-            key="signal_lab_wealth",
-        )
-        formatted = result.metrics.reset_index()
-        st.dataframe(
-            formatted,
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "Annual return": st.column_config.NumberColumn(format="percent"),
-                "Annual volatility": st.column_config.NumberColumn(format="percent"),
-                "Sharpe (0% cash)": st.column_config.NumberColumn(format="%.2f"),
-                "Maximum drawdown": st.column_config.NumberColumn(format="percent"),
-                "Average exposure": st.column_config.NumberColumn(format="percent"),
-            },
-        )
+    signal = view.signal
+    strongest_key, strongest_value = max(
+        signal.components.items(),
+        key=lambda item: item[1],
+    )
+    breadth = sum(value >= 67 for value in signal.components.values())
+    component_names = {
+        "ig_oas": "investment-grade credit",
+        "hy_oas": "high-yield credit",
+        "vix": "equity volatility",
+        "stlfsi": "the St. Louis Fed stress index",
+        "drawdown": "equity drawdown",
+    }
+    st.markdown(
+        f"""
+        ### How to read what you are seeing
 
-    with phases:
-        st.subheader("Performance around recession episodes")
-        st.write(
-            "Pre-recession and recovery each cover 26 weeks around the NBER-labelled "
-            "episode. The table separates what happened in each regime instead of "
-            "allowing a strong expansion to hide weak recession performance."
-        )
-        st.dataframe(
-            _phase_table(result),
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "Average annualised return": st.column_config.NumberColumn(format="percent"),
-                "Weekly volatility": st.column_config.NumberColumn(format="percent"),
-                "Average stress z-score": st.column_config.NumberColumn(format="%.2f"),
-            },
-        )
+        **Left to right is time.** Each slice is one completed historical week. The five
+        rows are IG OAS, HY OAS, VIX, STLFSI and S&P 500 drawdown.
 
-    with glossary:
-        st.markdown(
-            """
-            ### Z-score
-            The number of historical standard deviations an observation sits above or
-            below its trailing baseline. Positive stress z-scores mean conditions are
-            tighter than normal; they do not directly mean a recession is certain.
+        **Height is stress, not return.** A height near 50 is close to the trailing
+        historical baseline. Values above 67 enter the ALERT band. Values below 34 are
+        comparatively calm. The score is derived from causal 156-week z-scores, so the
+        current week never enters its own baseline.
 
-            ### Sharpe ratio
-            Annualised average strategy return divided by annualised volatility. This
-            implementation uses a 0% cash benchmark so the comparison stays transparent.
-            A higher historical Sharpe ratio is not a promise of future performance.
+        **Colour supplies economic context.** Yellow sections are outside an
+        NBER-labelled US recession. Red sections fall inside a labelled recession. A red
+        peak does not prove causation; it shows that market stress and contraction
+        overlapped in the historical sample.
 
-            ### Maximum drawdown
-            The largest peak-to-trough loss in the historical strategy path. It measures
-            severity, while volatility measures the typical variation in weekly returns.
+        **Shape shows breadth.** One tall row is an isolated warning. A ridge across
+        several rows means credit, volatility and market losses are agreeing, which is a
+        stronger stress signal.
 
-            ### Recession phases
-            **Pre-recession** is the 26 weeks before an NBER episode, **recession** is the
-            labelled episode, and **recovery** is the following 26 weeks. All other weeks
-            are classified as expansion.
-            """
-        )
+        **Current selected-date reading:** {signal.score:.0f}/100, **{signal.status}**,
+        with {breadth} of {len(signal.components)} channels in ALERT. The strongest
+        channel is {component_names.get(strongest_key, strongest_key)} at
+        {strongest_value:.0f}/100. {signal.verdict}
+        """
+    )
+
+    st.divider()
+    st.subheader("Three transparent exposure rules")
+    st.write(
+        "Buy & hold remains fully invested. Stress-scaled exposure falls gradually "
+        "as the composite rises. Alert reducer uses 100% exposure in CALM, 65% in "
+        "WATCH and 25% in ALERT. Every rule uses the previous week's score to avoid "
+        "look-ahead bias; cash is modelled at 0% and costs are omitted."
+    )
+    st.plotly_chart(
+        _wealth_figure(result),
+        width="stretch",
+        config={"displayModeBar": False, "responsive": True},
+        key="signal_lab_wealth",
+    )
+    formatted = result.metrics.reset_index()
+    st.dataframe(
+        formatted,
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Annual return": st.column_config.NumberColumn(format="percent"),
+            "Annual volatility": st.column_config.NumberColumn(format="percent"),
+            "Sharpe (0% cash)": st.column_config.NumberColumn(format="%.2f"),
+            "Maximum drawdown": st.column_config.NumberColumn(format="percent"),
+            "Average exposure": st.column_config.NumberColumn(format="percent"),
+        },
+    )
+
+    st.divider()
+    st.subheader("Performance around recession episodes")
+    st.write(
+        "Pre-recession and recovery each cover 26 weeks around the NBER-labelled "
+        "episode. The table separates what happened in each regime instead of "
+        "allowing a strong expansion to hide weak recession performance."
+    )
+    st.dataframe(
+        _phase_table(result),
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Average annualised return": st.column_config.NumberColumn(format="percent"),
+            "Weekly volatility": st.column_config.NumberColumn(format="percent"),
+            "Average stress z-score": st.column_config.NumberColumn(format="%.2f"),
+        },
+    )
+
+    st.divider()
+    st.markdown(
+        """
+        ## Definitions
+
+        ### Z-score
+        The number of historical standard deviations an observation sits above or
+        below its trailing baseline. Positive stress z-scores mean conditions are
+        tighter than normal; they do not directly mean a recession is certain.
+
+        ### Sharpe ratio
+        Annualised average strategy return divided by annualised volatility. This
+        implementation uses a 0% cash benchmark so the comparison stays transparent.
+        A higher historical Sharpe ratio is not a promise of future performance.
+
+        ### Maximum drawdown
+        The largest peak-to-trough loss in the historical strategy path. It measures
+        severity, while volatility measures the typical variation in weekly returns.
+
+        ### Recession phases
+        **Pre-recession** is the 26 weeks before an NBER episode, **recession** is the
+        labelled episode, and **recovery** is the following 26 weeks. All other weeks
+        are classified as expansion.
+        """
+    )

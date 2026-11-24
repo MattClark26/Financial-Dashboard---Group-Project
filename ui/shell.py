@@ -53,7 +53,7 @@ def render_composite(scores: Mapping[str, float]) -> None:
     """Render the aggregate while clearly stating how many panels contribute."""
     score = calculate_composite(scores)
     if score is None:
-        value, status, marker = "—", "WAITING", 0.0
+        value, status, marker = "Not available", "WAITING", 0.0
     else:
         value = f"{score:.0f}"
         status = "ALERT" if score >= 67 else "WATCH" if score >= 34 else "CALM"

@@ -71,12 +71,12 @@ def render_connections() -> None:
     with st.container(border=True):
         st.markdown("### Yahoo Finance")
         st.write("No key required. Used for VIX, high-yield spreads and equity-market history.")
-        st.success("Public connection — no credentials required")
+        st.success("Public connection: no credentials required")
 
     with st.container(border=True):
         st.markdown("### Central Statistics Office Ireland")
         st.write("No key required. The Irish Lens uses the CSO public PxStat API and local fallbacks.")
-        st.success("Public connection — no credentials required")
+        st.success("Public connection: no credentials required")
 
     st.info(
         "For a deployed app, add FRED_API_KEY in the host's secret manager. "

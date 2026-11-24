@@ -681,7 +681,7 @@ def render(as_of: date) -> dict:
     export_value = (
         f"{latest_export_share:.1f}%"
         if latest_export_share is not None
-        else "—"
+        else "Not available"
     )
     gdp_available = "YES" if not gdp.empty else "NO"
     mdd_available = "YES" if not mdd.empty else "NO"
