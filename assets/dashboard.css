@@ -344,15 +344,16 @@ input:focus-visible {
 }
 
 [class*="st-key-panel_"] {
-    height: calc((100vh - 10.6rem) / 2);
-    min-height: 19rem;
-    overflow: hidden;
+    height: auto;
+    min-height: max(28rem, calc((100dvh - 10.6rem) / 2));
+    overflow: clip;
     border-bottom: 1px solid var(--rr-ink);
     background: var(--rr-paper);
+    padding: clamp(1rem, 1.8vw, 1.5rem);
 }
 
 [class*="st-key-panel_"] > div {
-    height: 100%;
+    min-height: 100%;
 }
 
 .st-key-panel_bond,
@@ -373,6 +374,7 @@ input:focus-visible {
 
 .rr-panel-topline {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
@@ -426,6 +428,7 @@ input:focus-visible {
     font: 560 clamp(1.8rem, 2.6vw, 3rem)/.95 var(--rr-sans);
     letter-spacing: -.055em;
     color: var(--rr-ink) !important;
+    overflow-wrap: anywhere;
 }
 
 .rr-panel-summary {
@@ -565,6 +568,7 @@ input:focus-visible {
     font: 560 clamp(3.2rem, 7vw, 7.4rem)/.87 var(--rr-sans);
     letter-spacing: -.075em;
     color: var(--rr-ink) !important;
+    overflow-wrap: anywhere;
 }
 
 .rr-detail-lede {
@@ -588,6 +592,43 @@ input:focus-visible {
 .rr-detail-score span {
     color: var(--rr-muted);
     font: .8rem var(--rr-mono);
+}
+
+/* Keep Plotly canvases and long widget labels inside their layout columns. */
+[data-testid="stPlotlyChart"],
+[data-testid="stPlotlyChart"] > div,
+[data-testid="stPlotlyChart"] iframe,
+[data-testid="stDataFrame"],
+[data-testid="stElementContainer"] {
+    min-width: 0;
+    max-width: 100%;
+}
+
+[data-testid="stPlotlyChart"] {
+    overflow: clip;
+}
+
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3 {
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+}
+
+[data-testid="stTabs"] [role="tablist"] {
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+[data-testid="stTabs"] [role="tab"] {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .rr-detail-hero { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+    .rr-detail-score { grid-row: 1; }
+    .rr-detail-title { font-size: clamp(3rem, 8vw, 6rem); }
 }
 
 .rr-section {
