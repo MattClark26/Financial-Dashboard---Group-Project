@@ -49,8 +49,6 @@ def render_workspace() -> None:
         )
         return
 
-    render_topbar(default_date)
-
     with st.container(key="control_deck"):
         timeline, composite = st.columns(
             [3, 2],
@@ -60,15 +58,19 @@ def render_workspace() -> None:
 
         with timeline:
             as_of = render_time_machine(default_date)
-
+        irish_signal = irish_lens.load_irish_lens_signal(
+            pd.Timestamp(as_of)
+        )
         with composite:
-            irish_signal = irish_lens.load_irish_lens_signal(
-                pd.Timestamp(as_of)
-            )
             render_composite({
                 "stress": stress_view.signal.score,
                 "irish": irish_signal["score"],
             })
+
+    render_topbar(
+        as_of,
+        connected_count=2,
+    )
 
     for offset in (0, 2):
         columns = st.columns(2, gap=None)
