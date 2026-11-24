@@ -40,10 +40,6 @@ REQUIRED_FILES = (
     "data/irish_mdd.csv",
     "data/irish_unemployment.csv",
     "data/us_recession_probability.csv",
-    "preview-site/index.html",
-    "preview-site/style.css",
-    "preview-site/app.js",
-    "preview-site/cursor.js",
 )
 
 

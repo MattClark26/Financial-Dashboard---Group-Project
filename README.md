@@ -53,7 +53,6 @@ The dashboard will have one Streamlit entry point and one Python package per pan
 | `panels/financial_stress/` | Panel 3 · Credit spreads, VIX, the Fed stress index and S&P 500 drawdowns |
 | `panels/irish_lens/` | Panel 4 · Irish economic indicators and exposure to a US downturn |
 | `data/` | Cached CSVs for when an API is unavailable |
-| `preview-site/` | Exact static source used by the hosted GPT visual preview |
 | `scripts/check_setup.py` | Fresh-checkout dependency, data and file verifier |
 | `requirements.txt` | Python dependencies for running and deploying the dashboard |
 
@@ -129,20 +128,6 @@ drawdown and average exposure. A phase view then separates expansion,
 pre-recession, recession and recovery observations instead of hiding them in a
 single full-sample average. These outputs are historical diagnostics, not
 investment advice or forecasts.
-
-### Exact browser preview
-
-The visual preview shown at
-[recession-radar-preview-rohi.rohialuede.chatgpt.site](https://recession-radar-preview-rohi.rohialuede.chatgpt.site/)
-is also committed in `preview-site/`. Run its exact source locally with:
-
-```sh
-python -m http.server 4173 --directory preview-site
-```
-
-Open `http://localhost:4173` in a browser. This static version is the design
-reference. The Streamlit application remains the assessed, data-backed project
-and is the version to use for analytical testing.
 
 ### Troubleshooting
 
