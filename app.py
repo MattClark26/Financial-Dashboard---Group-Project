@@ -6,6 +6,7 @@ import pandas as pd
 
 from panels import bond_market, financial_stress, irish_lens, labour_market
 from ui.controls import render_time_machine
+from ui.connections import activate_session_credentials, render_connections
 from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
 from ui.navigation import render_back_to_signals
@@ -17,9 +18,20 @@ def open_bond_market() -> None:
     st.session_state["active_panel"] = "bond"
 
 
+def open_connections() -> None:
+    st.session_state["active_panel"] = "connections"
+
+
 def render_workspace() -> None:
+    activate_session_credentials()
     default_date = st.session_state.get("as_of", date.today())
     active_panel = st.session_state.get("active_panel")
+
+    if active_panel == "connections":
+        scroll_to_top()
+        render_back_to_signals(key="connections_back")
+        render_connections()
+        return
 
     if active_panel == "bond":
         scroll_to_top()
@@ -75,6 +87,11 @@ def render_workspace() -> None:
     render_topbar(
         as_of,
         connected_count=4,
+    )
+    st.button(
+        "Data connections & API keys",
+        key="open_data_connections",
+        on_click=open_connections,
     )
 
     for offset in (0, 2):
