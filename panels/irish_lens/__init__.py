@@ -19,6 +19,9 @@ GDP_CACHE = "irish_gdp.csv"
 MDD_CACHE = "irish_mdd.csv"
 EXPORTS_CACHE = "irish_exports.csv"
 
+IRISH_WARNING_SCORE = 34.0
+BACKTEST_HORIZON_MONTHS = 12
+
 CSO_DATASET_URL = (
     "https://ws.cso.ie/public/api.restful/"
     "PxStat.Data.Cube_API.ReadDataset/{table_code}/JSON-stat/2.0/en"
