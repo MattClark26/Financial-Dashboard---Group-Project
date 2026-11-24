@@ -340,16 +340,6 @@ def _plot_export_exposure(exposure: pd.DataFrame) -> go.Figure:
                 "This indicates exposure, not proof that a US downturn "
                 "will cause an Irish recession."
             )
-    return { 
-        "score": 0.0,
-        "status": panel_signal["status"].lower(),
-        "verdict": "Irish Lens indicators are available; transmission score is pending.",
-        "track_record": {
-            "caught": 0,
-            "false_alarms": 0,
-            "avg_lead_months": 0,
-        },
-   }
 
 def _render_conclusion(text: str) -> None:
     """Render a readable Panel 4 conclusion beneath a chart."""
