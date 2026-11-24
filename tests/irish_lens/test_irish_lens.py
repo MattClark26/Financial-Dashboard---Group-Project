@@ -11,8 +11,7 @@ from panels import irish_lens
 def test_score_status_thresholds(probability: float, expected_status: str) -> None:
     result = irish_lens.score_irish_lens(
         sahm_indicator=None,
-        export_share=None,
-        recession_probability=probability,
+        export_share=20 + probability / 5,
         gdp_index=None,
         mdd_index=None,
     )
