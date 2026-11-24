@@ -433,6 +433,61 @@ def score_irish_lens(
         "status": status,
         "components": components,
     }
+
+def load_irish_lens_signal(
+    selected_date: pd.Timestamp,
+) -> dict:
+    gdp = _slice_to_date(
+        _to_time_series(_read_cached_frame(GDP_CACHE)),
+        selected_date,
+    )
+    mdd = _slice_to_date(
+        _to_time_series(_read_cached_frame(MDD_CACHE)),
+        selected_date,
+    )
+    unemployment = _slice_to_date(
+        _to_time_series(_read_cached_frame(UNEMPLOYMENT_CACHE)),
+        selected_date,
+    )
+    export_exposure = _load_export_exposure(selected_date)
+    recession_probability = load_recession_probability(selected_date)
+
+    sahm_indicator = None
+    if not unemployment.empty:
+        sahm = compute_sahm_rule(unemployment)
+        valid_sahm = sahm["sahm_indicator"].dropna()
+        if not valid_sahm.empty:
+            sahm_indicator = float(valid_sahm.iloc[-1])
+
+    export_share = None
+    if not export_exposure.empty:
+        valid_average = export_exposure[
+            "12-month average (%)"
+        ].dropna()
+        if not valid_average.empty:
+            export_share = float(valid_average.iloc[-1])
+
+    us_probability = None
+    if not recession_probability.empty:
+        us_probability = float(recession_probability.iloc[-1])
+
+    gdp_index = None
+    mdd_index = None
+    if not gdp.empty and not mdd.empty:
+        baseline_date = pd.Timestamp("2014-12-31")
+        gdp_baseline = gdp[gdp.index <= baseline_date]
+        mdd_baseline = mdd[mdd.index <= baseline_date]
+        if not gdp_baseline.empty and not mdd_baseline.empty:
+            gdp_index = float(gdp.iloc[-1] / gdp_baseline.iloc[-1] * 100)
+            mdd_index = float(mdd.iloc[-1] / mdd_baseline.iloc[-1] * 100)
+
+    return score_irish_lens(
+        sahm_indicator=sahm_indicator,
+        export_share=export_share,
+        recession_probability=us_probability,
+        gdp_index=gdp_index,
+        mdd_index=mdd_index,
+    )
     
 def render(as_of: date) -> dict:
     """Render the compact Irish Lens quadrant."""
