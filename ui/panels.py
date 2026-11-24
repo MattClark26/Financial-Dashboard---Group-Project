@@ -27,7 +27,7 @@ def render_panel_header(
     status_class = status.lower() if status in {"CALM", "WATCH", "ALERT"} else ""
     owner = (
         f"<b>{escape(identity.owner.upper())}</b>"
-        if identity.key == "stress"
+        if identity.key in {"stress", "irish"}
         else ""
     )
     st.html(
