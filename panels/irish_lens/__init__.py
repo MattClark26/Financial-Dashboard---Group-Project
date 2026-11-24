@@ -280,7 +280,11 @@ def _plot_gdp_vs_mdd(
 
     return figure
 
-def _plot_export_exposure(exposure: pd.DataFrame, compact: bool = False,) -> go.Figure:
+def _plot_export_exposure(
+    exposure: pd.DataFrame,
+    *,
+    compact: bool = False,
+) -> go.Figure:
     """Create the Irish export exposure chart."""
     figure = go.Figure()
 
@@ -305,54 +309,46 @@ def _plot_export_exposure(exposure: pd.DataFrame, compact: bool = False,) -> go.
     )
 
     figure.update_layout(
-        title=None if compact else "Irish Export Exposure to the United States",
-        height=150 if compact else 420,
-        margin={"l": 0, "r": 0, "t": 4 if compact else 10, "b": 0 if compact else 20},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        showlegend=not compact,
-        xaxis_title=None if compact else "Date",
-        yaxis_title=None if compact else "US share of Irish exports (%)",
+        title={
+            "text": "Irish Export Exposure to the United States",
+            "x": 0,
+            "xanchor": "left",
+        },
+        template="plotly_dark",
+        height=260 if compact else 420,
+        margin={"l": 65, "r": 150, "t": 60, "b": 65},
+        paper_bgcolor="#080808",
+        plot_bgcolor="#080808",
+        showlegend=True,
+        xaxis_title="Date",
+        yaxis_title="US share of Irish exports (%)",
         hovermode="x unified",
         legend={
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
+            "orientation": "v",
+            "yanchor": "top",
+            "y": 1,
             "xanchor": "left",
-            "x": 0,
+            "x": 1.02,
             "font": {"family": "monospace", "size": 11},
         },
     )
 
     return figure
-    
-    export_exposure = _load_export_exposure(selected_date)
 
-    if export_exposure.empty:
-        st.info(
-            "Irish export exposure data is not available "
-            "for the selected date."
-        )
-    else:
-        st.plotly_chart(
-            _plot_export_exposure(export_exposure),
-            width="stretch",
-        )
-        latest_share = export_exposure["US Share (%)"].iloc[-1]
-        latest_average = export_exposure["12-month average (%)"].dropna()
 
-        if latest_average.empty:
-            st.caption(
-                "US exports account for this share of Irish merchandise exports."
-            )
-        else:
-            latest_average_value = latest_average.iloc[-1]
-            st.caption(
-                f"The latest US export share is {latest_share:.1f}%, with a "
-                f"12-month average of {latest_average_value:.1f}%. "
-                "This indicates exposure, not proof that a US downturn "
-                "will cause an Irish recession."
-            )
+def _render_export_exposure_chart(
+    exposure: pd.DataFrame,
+    *,
+    key: str,
+    compact: bool = False,
+) -> None:
+    """Render the shared export chart in either dashboard view."""
+    st.plotly_chart(
+        _plot_export_exposure(exposure, compact=compact),
+        width="stretch",
+        config={"displayModeBar": False, "responsive": True},
+        key=key,
+    )
 
 def _render_conclusion(text: str) -> None:
     """Render a readable Panel 4 conclusion beneath a chart."""
@@ -626,13 +622,9 @@ def render(as_of: date) -> dict:
             "for the selected date."
         )
     else:
-        st.plotly_chart(
-            _plot_export_exposure(export_exposure),
-            width="stretch",
-            config={
-                "displayModeBar": False,
-                "responsive": True,
-            },
+        _render_export_exposure_chart(
+            export_exposure,
+            compact=True,
             key="irish_export_overview",
         )
 
@@ -757,11 +749,9 @@ def render_detail(as_of: date) -> None:
                 "Irish export exposure data is unavailable for this date."
             )
         else:
-            st.plotly_chart(
-               _plot_export_exposure(export_exposure),
-               width="stretch",
-               config={"displayModeBar": False, "responsive": True},
-               key="irish_export_tab",
+            _render_export_exposure_chart(
+                export_exposure,
+                key="irish_export_tab",
             )
             latest_share = float(
                 export_exposure["US Share (%)"].iloc[-1]
