@@ -1,4 +1,3 @@
-
 from datetime import date
 from pathlib import Path
 
@@ -29,28 +28,33 @@ def render_workspace() -> None:
         st.button(
             "← Back to dashboard",
             key="bond_market_back",
-            on_click=close_bond_market
+            on_click=close_bond_market,
         )
         bond_market.render_full(default_date)
         return
 
     stress_view = financial_stress.load_financial_stress_view(default_date)
-    if st.session_state.get("active_panel") == "irish":
+
+    if active_panel == "irish":
         scroll_to_top()
         irish_lens.render_detail(default_date)
         return
-    if st.session_state.get("active_panel") == "stress":
 
     if active_panel == "stress":
         scroll_to_top()
-        financial_stress.render_detail(default_date, view=stress_view)
+        financial_stress.render_detail(
+            default_date,
+            view=stress_view,
+        )
         return
 
     render_topbar(default_date)
 
     with st.container(key="control_deck"):
         timeline, composite = st.columns(
-            [3, 2], gap="large", vertical_alignment="center"
+            [3, 2],
+            gap="large",
+            vertical_alignment="center",
         )
 
         with timeline:
@@ -71,21 +75,21 @@ def render_workspace() -> None:
                         identity,
                         financial_stress,
                         as_of,
-                        view=stress_view
+                        view=stress_view,
                     )
 
                 elif identity.key == "bond":
                     render_connected_panel(
                         identity,
                         bond_market,
-                        as_of
+                        as_of,
                     )
 
                     st.button(
                         "Explore Bond Market",
                         key="bond_market_open",
                         width="stretch",
-                        on_click=open_bond_market
+                        on_click=open_bond_market,
                     )
 
                 elif identity.key == "irish":
@@ -94,8 +98,9 @@ def render_workspace() -> None:
                         irish_lens,
                         as_of,
                     )
+
                 else:
-                    render_placeholder(identity)
+                    render_placeholder(identity)    
 
 
 def main() -> None:
