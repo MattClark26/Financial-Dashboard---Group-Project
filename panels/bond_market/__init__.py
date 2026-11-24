@@ -34,11 +34,34 @@ def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
     )
 
 
+def load_fred_series(name: str):
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={name}"
+    backup = DATA_DIR / f"{name}.csv"
+
+    for source in [url, backup]:
+        try:
+            frame = pd.read_csv(
+                source, index_col=0, parse_dates=True, na_values="."
+            )
+            if name not in frame.columns:
+                continue
+            frame.index = pd.to_datetime(frame.index, errors="coerce")
+            frame = frame[frame.index.notna()].sort_index()
+            frame = frame[~frame.index.duplicated(keep="last")]
+            frame[name] = pd.to_numeric(frame[name], errors="coerce")
+            if frame[name].notna().any():
+                return frame[[name]]
+        except Exception:
+            continue
+
+    return None
+
+
 def render(as_of: date) -> None:
     st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
     st.html(
         '<p style="color: #444444; margin: 0 0 10px 0;">'
-        'Explore Treasury yield curves, inversion signals and US recession probabilities.'
+        'Explore Treasury yield curves, corporate credit spreads and US recession probabilities.'
         '</p>'
     )
     st.html(
@@ -52,106 +75,102 @@ def render_full(as_of: date) -> None:
     from ui.controls import render_time_machine
     as_of = render_time_machine(as_of)
 
-    # Yield curve chart
+    # Yield and corporate credit spread charts
 
     st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
-    st.html('<p style="color: #444444; margin: 0;">Choose yield spread</p>')
+    st.html('<p style="color: #444444; margin: 0;">Choose yield or credit spread</p>')
 
+    titles = {
+        "T10Y3M": "10-Year minus 3-Month Treasury Spread",
+        "T10Y2Y": "10-Year minus 2-Year Treasury Spread",
+        "BAA10Y": "Moody's Baa Corporate Credit Spread"
+    }
     series = st.selectbox(
-        "Choose yield spread",
-        ["T10Y3M", "T10Y2Y"],
+        "Choose yield or credit spread",
+        list(titles),
+        format_func=lambda name: titles[name],
         label_visibility="collapsed"
     )
 
-    folder = Path(__file__).resolve().parents[2] / "data"
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
+    treasury_frame = load_fred_series("T10Y3M")
+    recession_frame = load_fred_series("USREC")
+    baa_frame = load_fred_series("BAA10Y")
 
-    try:
-        data = pd.read_csv(url, index_col=0, parse_dates=True, na_values=".")
-    except Exception:
-        data = pd.read_csv(
-            folder / f"{series}.csv",
-            index_col=0,
-            parse_dates=True,
-            na_values="."
+    if treasury_frame is None or recession_frame is None:
+        st.error(
+            "Treasury or US recession data is missing. "
+            "Check T10Y3M.csv and USREC.csv in the data folder."
         )
-        st.info("Using saved FRED data.")
-
-    data = data[data.index <= pd.Timestamp(as_of)]
-
-    if data[series].dropna().empty:
-        st.warning("No yield spread data available for this date.")
         return
 
-    latest_spread = data[series].dropna().iloc[-1]
-    signal = "Yield curve inverted" if latest_spread < 0 else "Yield curve not inverted"
+    chart_data = {
+        "T10Y3M": treasury_frame,
+        "T10Y2Y": load_fred_series("T10Y2Y") if series == "T10Y2Y" else None,
+        "BAA10Y": baa_frame
+    }[series]
 
-    if series == "T10Y3M":
-        title = "10-Year minus 3-Month Treasury Spread"
-    else:
-        title = "10-Year minus 2-Year Treasury Spread"
-
-    fig = px.line(data, x=data.index, y=series, title=title)
-    fig.add_hline(y=0, line_color="red", line_dash="dash")
-
-    recession = pd.read_csv(
-        folder / "USREC.csv",
-        index_col=0,
-        parse_dates=True
-    )
-    recession = recession[
-        (recession.index >= data.index.min()) &
-        (recession.index <= pd.Timestamp(as_of))
-    ]
-
-    for month in recession.index[recession["USREC"] == 1]:
-        fig.add_vrect(
-            x0=month,
-            x1=month + pd.DateOffset(months=1),
-            fillcolor="gray",
-            opacity=0.2,
-            line_width=0,
-            layer="below"
+    if chart_data is None:
+        st.warning(
+            f"{titles[series]} data is unavailable. "
+            f"Download {series}.csv from FRED into your data folder."
         )
+    else:
+        chart_data = chart_data.loc[
+            chart_data.index <= pd.Timestamp(as_of), [series]
+        ].dropna()
 
-    fig.update_traces(
-        hovertemplate="Date: %{x|%d %B %Y}<br>Spread: %{y:.2f}<extra></extra>"
-    )
-    fig.update_layout(
-        height=300,
-        xaxis_title=None,
-        yaxis_title="Percentage points"
-    )
-    fig.update_xaxes(
-        dtick="M60",
-        tick0="1980-01-01",
-        tickformat="%Y"
-    )
+        if chart_data.empty:
+            st.warning("No chart data available for this Time Machine date.")
+        else:
+            latest_value = chart_data[series].iloc[-1]
+            fig = px.line(
+                chart_data, x=chart_data.index, y=series, title=titles[series]
+            )
 
-    st.plotly_chart(fig, width="stretch")
-    st.html(f'<p style="color: #222222;">{signal}</p>')
+            if series in ("T10Y3M", "T10Y2Y"):
+                fig.add_hline(y=0, line_color="red", line_dash="dash")
+                signal = (
+                    "Yield curve inverted" if latest_value < 0
+                    else "Yield curve not inverted"
+                )
+            else:
+                signal = (
+                    f"Moody's Baa credit spread: {latest_value:.2f} "
+                    "percentage points"
+                )
+
+            chart_recessions = recession_frame.loc[
+                (recession_frame.index >= chart_data.index.min()) &
+                (recession_frame.index <= pd.Timestamp(as_of))
+            ]
+            for month in chart_recessions.index[chart_recessions["USREC"] == 1]:
+                fig.add_vrect(
+                    x0=month,
+                    x1=month + pd.DateOffset(months=1),
+                    fillcolor="gray",
+                    opacity=0.2,
+                    line_width=0,
+                    layer="below"
+                )
+
+            fig.update_traces(
+                hovertemplate=(
+                    "Date: %{x|%d %B %Y}<br>Spread: %{y:.2f} "
+                    "percentage points<extra></extra>"
+                )
+            )
+            fig.update_layout(
+                height=300, xaxis_title=None,
+                yaxis_title="Percentage points"
+            )
+            fig.update_xaxes(dtick="M60", tick0="1980-01-01", tickformat="%Y")
+            st.plotly_chart(fig, width="stretch")
+            st.html(f'<p style="color: #222222;">{signal}</p>')
 
     # Prepare regression data
 
-    datasets = {}
-
-    for name in ["T10Y3M", "USREC"]:
-        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={name}"
-
-        try:
-            df = pd.read_csv(url, index_col=0, parse_dates=True, na_values=".")
-        except Exception:
-            df = pd.read_csv(
-                folder / f"{name}.csv",
-                index_col=0,
-                parse_dates=True,
-                na_values="."
-            )
-
-        datasets[name] = df
-
-    spread = datasets["T10Y3M"].resample("ME").mean()
-    recession = datasets["USREC"].resample("ME").last()
+    spread = treasury_frame[["T10Y3M"]].resample("ME").mean()
+    recession = recession_frame[["USREC"]].resample("ME").last()
 
     model_data = spread.join(recession).dropna()
     model_data["recession_12m"] = model_data["USREC"].shift(-12)
@@ -169,29 +188,12 @@ def render_full(as_of: date) -> None:
 
     model_data["weighted_inversion"] = weighted_inversion
 
-    inflation_monthly = pd.Series(index=spread.index, dtype="float64")
-    cpi_url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL"
-
-    try:
-        cpi_frame = pd.read_csv(
-            cpi_url, index_col=0, parse_dates=True, na_values="."
+    credit_monthly = pd.Series(index=spread.index, dtype="float64")
+    if baa_frame is not None:
+        credit_monthly = (
+            baa_frame["BAA10Y"].resample("ME").mean().reindex(spread.index)
         )
-    except Exception:
-        cpi_backup = DATA_DIR / "CPIAUCSL.csv"
-        if cpi_backup.exists():
-            cpi_frame = pd.read_csv(
-                cpi_backup, index_col=0, parse_dates=True, na_values="."
-            )
-        else:
-            cpi_frame = None
-
-    if cpi_frame is not None:
-        cpi = pd.to_numeric(cpi_frame["CPIAUCSL"], errors="coerce")
-        cpi = cpi.sort_index().resample("ME").last()
-        inflation = cpi.pct_change(12, fill_method=None) * 100
-        inflation_monthly = inflation.shift(1).reindex(spread.index)
-
-    model_data["inflation_12m"] = inflation_monthly
+    model_data["credit_spread"] = credit_monthly
 
     # Fit regression models
 
@@ -220,11 +222,11 @@ def render_full(as_of: date) -> None:
 
     third_model = None
     third_data = model_data.dropna(
-        subset=["recession_12m", "weighted_inversion", "inflation_12m"]
+        subset=["recession_12m", "weighted_inversion", "credit_spread"]
     )
 
     third_predictors = [
-        "T10Y3M", "weighted_inversion", "inflation_12m"
+        "T10Y3M", "weighted_inversion", "credit_spread"
     ]
 
     if len(third_data) >= 60 and third_data["recession_12m"].nunique() == 2:
@@ -296,7 +298,7 @@ def render_full(as_of: date) -> None:
     tab1, tab2, tab3 = st.tabs([
         "Baseline",
         "Weighted inversion",
-        "Inflation"
+        "Baa credit spreads"
     ])
 
     with tab1:
@@ -462,21 +464,20 @@ def render_full(as_of: date) -> None:
     with tab3:
         if third_model is None:
             st.warning(
-                "Inflation data or sufficient recession history is unavailable. "
-                "Download CPIAUCSL.csv from FRED into the data folder if needed."
+                "Not enough Baa credit spread data to fit this model. "
+                "Download BAA10Y.csv from FRED into the data folder. "
+                "The first two models are unaffected."
             )
         else:
-            selected_inflation = inflation_monthly.reindex(selected_data.index).iloc[0]
+            selected_credit = credit_monthly.reindex(selected_data.index).iloc[0]
             selected_weighted = weighted_inversion.reindex(selected_data.index).iloc[0]
 
-            if any(pd.isna(value) for value in [
-                selected_inflation, selected_weighted
-            ]):
-                st.warning("Not enough historical data for the inflation model at this date.")
+            if pd.isna(selected_credit) or pd.isna(selected_weighted):
+                st.warning("Not enough data for the Baa credit spread model at this date.")
             else:
                 third_input = selected_data[["T10Y3M"]].copy()
                 third_input["weighted_inversion"] = selected_weighted
-                third_input["inflation_12m"] = selected_inflation
+                third_input["credit_spread"] = selected_credit
                 third_input = sm.add_constant(
                     third_input.astype(float), has_constant="add"
                 )
@@ -494,45 +495,46 @@ def render_full(as_of: date) -> None:
                 )
                 st.html(
                     f'<p style="color: #222222;">'
-                    f'Annual CPI inflation: {selected_inflation:.1f}%'
+                    f"Moody's Baa credit spread (BAA10Y): "
+                    f'{selected_credit:.2f} percentage points'
                     f'</p>'
                 )
                 st.html(
                     '<p style="color: #444444;">'
-                    'Annual inflation is the CPI change over the previous 12 months, '
-                    'used with a one-month reporting lag.'
+                    'The daily Baa credit spread is averaged into monthly values. '
+                    'The model predicts recession status exactly 12 months later.'
                     '</p>'
                 )
                 st.html('<p style="color: #222222;">Regression coefficients:</p>')
                 st.write(third_model.params)
 
-            with st.expander("Inflation historical probabilities"):
-                inflation_table = spread[["T10Y3M"]].copy()
-                inflation_table["weighted_inversion"] = weighted_inversion
-                inflation_table["inflation_12m"] = inflation_monthly
-                inflation_table = inflation_table.dropna()
+            with st.expander("Baa credit spread historical probabilities"):
+                credit_table = spread[["T10Y3M"]].copy()
+                credit_table["weighted_inversion"] = weighted_inversion
+                credit_table["credit_spread"] = credit_monthly
+                credit_table = credit_table.dropna()
 
-                X_inflation_history = sm.add_constant(
-                    inflation_table[third_predictors].astype(float),
+                X_credit_history = sm.add_constant(
+                    credit_table[third_predictors].astype(float),
                     has_constant="add"
                 )
-                inflation_table["Estimated probability (%)"] = (
-                    third_model.predict(X_inflation_history) * 100
+                credit_table["Estimated probability (%)"] = (
+                    third_model.predict(X_credit_history) * 100
                 ).round(2)
-                inflation_table["Actual recession 12 months later"] = (
+                credit_table["Actual recession 12 months later"] = (
                     model_data["recession_12m"].astype("Int64")
                 )
-                inflation_table["Actual recession 12 months later"] = (
-                    inflation_table["Actual recession 12 months later"]
+                credit_table["Actual recession 12 months later"] = (
+                    credit_table["Actual recession 12 months later"]
                     .astype("string").fillna("N/A")
                 )
-                inflation_table = inflation_table.rename(columns={
+                credit_table = credit_table.rename(columns={
                     "weighted_inversion": "Weighted Inversion Index",
-                    "inflation_12m": "Annual CPI Inflation (%)"
+                    "credit_spread": "Baa Credit Spread (percentage points)"
                 }).sort_index(ascending=False)
 
-                selected_period = inflation_table[
-                    inflation_table.index <= cutoff
+                selected_period = credit_table[
+                    credit_table.index <= cutoff
                 ].head(13).copy()
 
                 if selected_period.empty:
@@ -548,8 +550,8 @@ def render_full(as_of: date) -> None:
                     selected_period.index.name = "Month"
                     st.dataframe(selected_period, width="stretch", height=500)
 
-                if st.checkbox("Show full historical series", key="inflation_full_history"):
-                    full_table = inflation_table.copy()
+                if st.checkbox("Show full historical series", key="baa_full_history"):
+                    full_table = credit_table.copy()
                     first_month = full_table.index.min()
                     last_month = full_table.index.max()
                     st.html(
@@ -561,10 +563,10 @@ def render_full(as_of: date) -> None:
                     full_table.index.name = "Month"
                     st.dataframe(
                         full_table, width="stretch", height=400,
-                        key="bond_inflation_full_history"
+                        key="bond_baa_full_history"
                     )
 
-            with st.expander("Inflation model diagnostics"):
+            with st.expander("Baa credit spread model diagnostics"):
                 correlation_table = third_data[third_predictors].corr().round(2)
                 st.html('<p style="color: #222222;">Predictor correlations</p>')
                 st.dataframe(correlation_table, width="stretch")
@@ -587,7 +589,7 @@ def render_full(as_of: date) -> None:
             "USREC": "US Recession",
             "recession_12m": "Recession 12 Months Later",
             "weighted_inversion": "Weighted Inversion Index",
-            "inflation_12m": "Annual CPI Inflation (%)"
+            "credit_spread": "Baa Credit Spread (percentage points)"
         })
         display_data.index.name = "Observation Date"
         st.dataframe(display_data, width="stretch")
