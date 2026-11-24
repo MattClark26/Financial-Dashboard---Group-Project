@@ -6,16 +6,9 @@ from panels import irish_lens
 
 @pytest.mark.parametrize(
     ("probability", "expected_status"),
-    [
-        (33.9, "CALM"),
-        (34.0, "WATCH"),
-        (67.0, "ALERT"),
-    ],
+    [(33.9, "CALM"), (34.0, "WATCH"), (67.0, "ALERT")],
 )
-def test_score_status_thresholds(
-    probability: float,
-    expected_status: str,
-) -> None:
+def test_score_status_thresholds(probability: float, expected_status: str) -> None:
     result = irish_lens.score_irish_lens(
         sahm_indicator=None,
         export_share=None,
@@ -23,7 +16,6 @@ def test_score_status_thresholds(
         gdp_index=None,
         mdd_index=None,
     )
-
     assert result["status"] == expected_status
 
 
@@ -44,9 +36,7 @@ def test_export_share_obeys_as_of_date_and_rolling_average(
         lambda _filename: frame.copy(),
     )
 
-    result = irish_lens._load_export_exposure(
-        pd.Timestamp("2025-12-31")
-    )
+    result = irish_lens._load_export_exposure(pd.Timestamp("2025-12-31"))
 
     assert len(result) == 12
     assert result["Date"].max() == pd.Timestamp("2025-12-31")
@@ -73,9 +63,7 @@ def test_mdd_recession_starts_require_two_consecutive_declines() -> None:
 
     starts = irish_lens._mdd_recession_starts(mdd)
 
-    assert list(starts) == list(
-        pd.to_datetime(["2020-09-30", "2021-09-30"])
-    )
+    assert list(starts) == list(pd.to_datetime(["2020-09-30", "2021-09-30"]))
 
 
 def test_track_record_counts_caught_event_and_false_alarm(
@@ -86,16 +74,30 @@ def test_track_record_counts_caught_event_and_false_alarm(
         {
             "Time": quarters.astype(str),
             "VALUE": [
-                100, 101, 102, 103, 101, 99, 100, 101, 102, 103,
-                104, 105, 106, 107, 108, 109, 110, 111, 112, 113,
+                100,
+                101,
+                102,
+                103,
+                101,
+                99,
+                100,
+                101,
+                102,
+                103,
+                104,
+                105,
+                106,
+                107,
+                108,
+                109,
+                110,
+                111,
+                112,
+                113,
             ],
         }
     )
-    export_dates = pd.date_range(
-        "2018-01-31",
-        "2023-12-31",
-        freq="ME",
-    )
+    export_dates = pd.date_range("2018-01-31", "2023-12-31", freq="ME")
     exports = pd.DataFrame(
         {
             "Date": export_dates,
@@ -120,14 +122,10 @@ def test_track_record_counts_caught_event_and_false_alarm(
     monkeypatch.setattr(
         irish_lens,
         "load_irish_lens_signal",
-        lambda as_of: {
-            "score": 40.0 if as_of in warning_dates else 20.0,
-        },
+        lambda as_of: {"score": 40.0 if as_of in warning_dates else 20.0},
     )
 
-    result = irish_lens._compute_irish_track_record(
-        pd.Timestamp("2023-12-31")
-    )
+    result = irish_lens._compute_irish_track_record(pd.Timestamp("2023-12-31"))
 
     assert result == {
         "caught": 1,
