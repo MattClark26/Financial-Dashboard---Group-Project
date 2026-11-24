@@ -4,7 +4,6 @@ from pathlib import Path
 
 import streamlit as st
 
-from panels import financial_stress, irish_lens
 from panels import bond_market, financial_stress, irish_lens
 from ui.controls import render_time_machine
 from ui.cursor import install_cursor, scroll_to_top
