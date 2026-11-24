@@ -280,7 +280,7 @@ def _plot_gdp_vs_mdd(
 
     return figure
 
-def _plot_export_exposure(exposure: pd.DataFrame) -> go.Figure:
+def _plot_export_exposure(exposure: pd.DataFrame, compact: bool = False,) -> go.Figure:
     """Create the Irish export exposure chart."""
     figure = go.Figure()
 
@@ -305,10 +305,23 @@ def _plot_export_exposure(exposure: pd.DataFrame) -> go.Figure:
     )
 
     figure.update_layout(
-        title="Irish Export Exposure to the United States",
-        xaxis_title="Date",
-        yaxis_title="US share of Irish exports (%)",
+        title=None if compact else "Irish Export Exposure to the United States",
+        height=150 if compact else 420,
+        margin={"l": 0, "r": 0, "t": 4 if compact else 10, "b": 0 if compact else 20},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=not compact,
+        xaxis_title=None if compact else "Date",
+        yaxis_title=None if compact else "US share of Irish exports (%)",
         hovermode="x unified",
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "left",
+            "x": 0,
+            "font": {"family": "monospace", "size": 11},
+        },
     )
 
     return figure
