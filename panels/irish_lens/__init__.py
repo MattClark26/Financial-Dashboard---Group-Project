@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st    
 
+from panels.bond_market import load_recession_probability
+
 TITLE = "Irish lens"
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -500,11 +502,12 @@ def render_detail(as_of: date) -> None:
         </section>
         """
     )
-    gdp_tab, sahm_tab, exports_tab, method, sources = st.tabs(
+    gdp_tab, sahm_tab, exports_tab, probability_tab, method, sources = st.tabs(
         [
             "GDP & MDD",
             "Irish Sahm Rule",
             "US Export Exposure",
+            "US Recession Probability",
             "Method",
             "Sources",
         ]
@@ -523,6 +526,7 @@ def render_detail(as_of: date) -> None:
         selected_date,
     )
     export_exposure = _load_export_exposure(selected_date)
+    probability = load_recession_probability(selected_date)
 
     with gdp_tab:
         if gdp.empty or mdd.empty:
@@ -601,6 +605,60 @@ def render_detail(as_of: date) -> None:
                     "This indicates exposure, not proof that a US "
                     "downturn will cause an Irish recession."
                 )
+
+    with probability_tab:
+        st.html(
+            f"""
+            <div class="rr-section-head">
+              <span>US RECESSION PROBABILITY</span>
+              <strong>12-Month Baseline Probit · AS OF {selected_date:%d %b %Y}</strong>
+            </div>
+            """
+        )
+
+        if recession_probability.empty:
+            st.info(
+                "US recession probability is unavailable for this date."
+            )
+        else:
+            probability_figure = go.Figure()
+
+            probability_figure.add_trace(
+                go.Scatter(
+                    x=recession_probability.index,
+                    y=recession_probability,
+                    mode="lines",
+                    name="Recession probability",
+                    line={"color": "#d75f47", "width": 2},
+                )
+            )
+
+            probability_figure.update_layout(
+                title="Estimated US Recession Probability",
+                xaxis_title="Date",
+                yaxis_title="Probability (%)",
+                yaxis_range=[0, 100],
+                hovermode="x unified",
+            )
+
+            st.plotly_chart(
+                probability_figure,
+                width="stretch",
+                config={
+                    "displayModeBar": False,
+                    "responsive": True,
+                },
+                key="irish_us_recession_probability",
+            )
+
+            latest_probability = float(recession_probability.iloc[-1])
+
+            _render_conclusion(
+                f"The latest estimated probability of a US recession "
+                f"within the next 12 months is "
+                f"{latest_probability:.1f}%. "
+                "This is a model estimate, not a certainty."
+            )
     with method:
         st.html(
             """
