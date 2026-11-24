@@ -156,10 +156,18 @@ def render_full(as_of: date) -> None:
     model_data = spread.join(recession).dropna()
     model_data["recession_12m"] = model_data["USREC"].shift(-12)
 
-    rolling_min = spread["T10Y3M"].rolling(12, min_periods=12).min()
-    model_data["recent_inversion"] = (
-        (rolling_min < 0).where(rolling_min.notna())
+    inversion_depth = -spread["T10Y3M"].clip(upper=0)
+    weights = list(range(1, 25))
+
+    weighted_inversion = inversion_depth.rolling(
+        24,
+        min_periods=24
+    ).apply(
+        lambda values: sum(values * weights) / sum(weights),
+        raw=True
     )
+
+    model_data["weighted_inversion"] = weighted_inversion
 
     # Fit regression models
 
@@ -177,10 +185,10 @@ def render_full(as_of: date) -> None:
     all_probabilities = model.predict(all_X) * 100
 
     second_data = model_data.dropna(
-        subset=["recession_12m", "recent_inversion"]
+        subset=["recession_12m", "weighted_inversion"]
     )
     X_second = sm.add_constant(
-        second_data[["T10Y3M", "recent_inversion"]].astype(float),
+        second_data[["T10Y3M", "weighted_inversion"]].astype(float),
         has_constant="add"
     )
     y_second = second_data["recession_12m"].astype(int)
@@ -230,7 +238,7 @@ def render_full(as_of: date) -> None:
 
     tab1, tab2, tab3 = st.tabs([
         "Baseline",
-        "Recent inversion",
+        "Weighted inversion",
         "Government debt"
     ])
 
@@ -312,20 +320,20 @@ def render_full(as_of: date) -> None:
                 )
 
     with tab2:
-        selected_min = rolling_min.loc[selected_data.index].iloc[0]
+        weighted_value = weighted_inversion.reindex(
+            selected_data.index
+        ).iloc[0]
 
-        if pd.isna(selected_min):
+        if pd.isna(weighted_value):
             st.warning("Not enough historical data for this model.")
         else:
-            recent_inversion = int(selected_min < 0)
             second_input = selected_data[["T10Y3M"]].copy()
-            second_input["recent_inversion"] = recent_inversion
+            second_input["weighted_inversion"] = weighted_value
             second_input = sm.add_constant(
                 second_input.astype(float),
                 has_constant="add"
             )
             second_probability = second_model.predict(second_input).iloc[0] * 100
-            inversion_text = "Yes" if recent_inversion == 1 else "No"
 
             st.html(
                 f'<p style="color: #222222;">'
@@ -334,37 +342,84 @@ def render_full(as_of: date) -> None:
             )
             st.html(
                 f'<p style="color: #222222;">'
-                f'Yield curve inverted in the past 12 months: {inversion_text}'
+                f'Weighted inversion index (24 months): {weighted_value:.3f}'
                 f'</p>'
             )
             st.html('<p style="color: #222222;">Regression coefficients:</p>')
             st.write(second_model.params)
 
-        with st.expander("Historical regression table"):
-            second_historical = historical.dropna(
-                subset=["recent_inversion"]
-            ).copy()
+        with st.expander("Weighted inversion historical probabilities"):
 
-            if second_historical.empty:
-                st.info("No completed 12-month recession outcomes available.")
+            weighted_table = spread[["T10Y3M"]].copy()
+            weighted_table["weighted_inversion"] = weighted_inversion
+
+            weighted_table = weighted_table.dropna()
+
+            X_weighted = sm.add_constant(
+                weighted_table[["T10Y3M", "weighted_inversion"]].astype(float),
+                has_constant="add"
+            )
+
+            weighted_table["Estimated probability (%)"] = (
+                second_model.predict(X_weighted) * 100
+            ).round(2)
+
+            weighted_table["Actual recession 12 months later"] = (
+                model_data["recession_12m"].astype("Int64")
+            )
+
+            weighted_table["Actual recession 12 months later"] = (
+                weighted_table["Actual recession 12 months later"]
+                .astype("string")
+                .fillna("N/A")
+            )
+
+            weighted_table = weighted_table.sort_index(ascending=False)
+
+            selected_period = weighted_table[
+                weighted_table.index <= cutoff
+            ].head(13).copy()
+
+            if selected_period.empty:
+                st.info("No historical probabilities available for this date.")
             else:
-                second_table = second_historical[
-                    ["T10Y3M", "recent_inversion"]
-                ].copy()
-                X_history_second = sm.add_constant(
-                    second_table[["T10Y3M", "recent_inversion"]].astype(float),
-                    has_constant="add"
+                selected_month = selected_period.index.max()
+
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f'Selected period: {selected_month:%b %Y} and the previous 12 months'
+                    f'</p>'
                 )
-                second_table["Estimated probability (%)"] = (
-                    second_model.predict(X_history_second) * 100
-                ).round(2)
-                second_table["Actual recession"] = (
-                    second_historical["recession_12m"].astype(int)
+
+                selected_period.index = selected_period.index.strftime("%b %Y")
+                selected_period.index.name = "Month"
+
+                st.dataframe(selected_period, width="stretch", height=500)
+
+            if st.checkbox(
+                "Show full historical series",
+                key="weighted_full_history"
+            ):
+                full_table = weighted_table.copy()
+
+                first_month = full_table.index.min()
+                last_month = full_table.index.max()
+
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f'Full historical data: {first_month:%b %Y} to {last_month:%b %Y}'
+                    f'</p>'
                 )
-                second_table = second_table.tail(12)
-                second_table.index = second_table.index.strftime("%b %Y")
-                second_table.index.name = "Month"
-                st.dataframe(second_table, width="stretch")
+
+                full_table.index = full_table.index.strftime("%b %Y")
+                full_table.index.name = "Month"
+
+                st.dataframe(
+                    full_table,
+                    width="stretch",
+                    height=400,
+                    key="bond_weighted_full_history"
+                )
 
     with tab3:
         st.html(
@@ -378,4 +433,3 @@ def render_full(as_of: date) -> None:
             model_data[model_data.index <= cutoff].tail(12),
             width="stretch"
         )
-
