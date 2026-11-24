@@ -44,7 +44,7 @@ def render(as_of: date, *, signal: dict | None = None, **_: object) -> dict:
     state.write(signal["verdict"])
 
     st.button(
-        "Explore Labour Market",
+        "See full Labour analysis",
         key="labour_market_open",
         width="stretch",
         on_click=_open_detail,

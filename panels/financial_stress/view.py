@@ -68,7 +68,10 @@ def render_overview(
           <div class="rr-panel-title-row">
             <div>
               <h2 class="rr-panel-title">Markets under pressure</h2>
-              <p class="rr-panel-summary">{signal.verdict}</p>
+              <p class="rr-panel-summary">Combines credit spreads, volatility,
+              the Fed stress index and equity drawdown to test whether market
+              pressure is broad.</p>
+              <p class="rr-panel-verdict">{signal.verdict}</p>
             </div>
             <div class="rr-score">
               <strong>{signal.score:.0f}</strong><span>/100</span>
@@ -103,7 +106,7 @@ def render_overview(
         </div>
         """
     )
-    if st.button("Explore panel", key="open_stress"):
+    if st.button("See full Stress analysis", key="open_stress"):
         st.session_state.active_panel = "stress"
         st.rerun()
     return signal

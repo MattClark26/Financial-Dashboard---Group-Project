@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -101,7 +102,11 @@ def build_strategy_lab(view: FinancialStressView) -> StrategyLabResult:
     )
 
 
-def _terrain_figure(view: FinancialStressView) -> go.Figure:
+def _terrain_figure(
+    view: FinancialStressView,
+    *,
+    height: int = 650,
+) -> go.Figure:
     labels = ["IG OAS", "HY OAS", "VIX", "STLFSI", "Drawdown"]
     keys = ["ig_oas", "hy_oas", "vix", "stlfsi", "drawdown"]
     history = view.history[keys].dropna(how="all").tail(260)
@@ -127,7 +132,7 @@ def _terrain_figure(view: FinancialStressView) -> go.Figure:
         )
     )
     figure.update_layout(
-        height=650,
+        height=height,
         margin={"l": 0, "r": 0, "t": 10, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         scene={
@@ -140,6 +145,53 @@ def _terrain_figure(view: FinancialStressView) -> go.Figure:
         },
     )
     return figure
+
+
+def render_signal_lab_preview(
+    view: FinancialStressView,
+    *,
+    on_open: Callable[[], None],
+) -> None:
+    """Render a compact central terrain with a route to the full lab."""
+    signal = view.signal
+    strongest_key, strongest_value = max(
+        signal.components.items(),
+        key=lambda item: item[1],
+    )
+    names = {
+        "ig_oas": "IG credit",
+        "hy_oas": "high-yield credit",
+        "vix": "VIX",
+        "stlfsi": "STLFSI",
+        "drawdown": "equity drawdown",
+    }
+    breadth = sum(value >= 67 for value in signal.components.values())
+
+    st.caption("CENTRE / INTERACTIVE 3D SIGNAL LAB")
+    st.subheader("See stress spread across markets")
+    st.write(
+        "The surface puts credit spreads, VIX, STLFSI and equity drawdown on "
+        "one 0 to 100 scale. A broad ridge across several rows is more meaningful "
+        "than one isolated spike. Red sections overlap a labelled US recession."
+    )
+    st.plotly_chart(
+        _terrain_figure(view, height=460),
+        width="stretch",
+        config={"displayModeBar": False, "responsive": True},
+        key="signal_lab_terrain_preview",
+    )
+    st.markdown(
+        f"**Current reading:** {signal.score:.0f}/100, **{signal.status}**. "
+        f"{breadth} of {len(signal.components)} channels are in ALERT. "
+        f"The strongest channel is {names.get(strongest_key, strongest_key)} "
+        f"at {strongest_value:.0f}/100."
+    )
+    st.button(
+        "See the full Signal Lab",
+        key="open_signal_lab_centre",
+        on_click=on_open,
+        width="stretch",
+    )
 
 
 def _wealth_figure(result: StrategyLabResult) -> go.Figure:

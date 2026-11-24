@@ -11,7 +11,7 @@ from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
 from ui.navigation import render_back_to_signals
 from ui.panels import PANEL_IDENTITIES, render_connected_panel
-from ui.signal_lab import render_signal_lab
+from ui.signal_lab import render_signal_lab, render_signal_lab_preview
 from ui.shell import render_composite, render_topbar
 
 
@@ -99,13 +99,7 @@ def render_workspace() -> None:
         as_of,
         connected_count=4,
     )
-    lab_action, connection_action, _ = st.columns([1, 1, 3])
-    lab_action.button(
-        "Open 3D Signal Lab",
-        key="open_signal_lab",
-        on_click=open_signal_lab,
-        width="stretch",
-    )
+    connection_action, _ = st.columns([1, 4])
     connection_action.button(
         "Data connections & API keys",
         key="open_data_connections",
@@ -113,50 +107,46 @@ def render_workspace() -> None:
         width="stretch",
     )
 
-    for offset in (0, 2):
-        columns = st.columns(2, gap=None)
+    with st.container(key="signal_matrix"):
+        top_left, top_right = st.columns(2, gap=None)
+        with top_left:
+            render_connected_panel(
+                PANEL_IDENTITIES[0],
+                bond_market,
+                as_of,
+                signal=bond_signal,
+            )
+            st.button(
+                "See full Bond analysis",
+                key="bond_market_open",
+                width="stretch",
+                on_click=open_bond_market,
+            )
+        with top_right:
+            render_connected_panel(
+                PANEL_IDENTITIES[1],
+                labour_market,
+                as_of,
+                signal=labour_signal,
+            )
 
-        for index, column in enumerate(columns, start=offset):
-            with column:
-                identity = PANEL_IDENTITIES[index]
+        with st.container(key="signal_lab_preview"):
+            render_signal_lab_preview(stress_view, on_open=open_signal_lab)
 
-                if identity.key == "stress":
-                    render_connected_panel(
-                        identity,
-                        financial_stress,
-                        as_of,
-                        view=stress_view,
-                    )
-
-                elif identity.key == "bond":
-                    render_connected_panel(
-                        identity,
-                        bond_market,
-                        as_of,
-                        signal=bond_signal,
-                    )
-
-                    st.button(
-                        "Explore Bond Market",
-                        key="bond_market_open",
-                        width="stretch",
-                        on_click=open_bond_market,
-                    )
-
-                elif identity.key == "irish":
-                    render_connected_panel(
-                        identity,
-                        irish_lens,
-                        as_of,
-                    )
-
-                elif identity.key == "labour":
-                    render_connected_panel(
-                        identity,
-                        labour_market,
-                        as_of,
-                        signal=labour_signal,
-                    )
+        bottom_left, bottom_right = st.columns(2, gap=None)
+        with bottom_left:
+            render_connected_panel(
+                PANEL_IDENTITIES[2],
+                financial_stress,
+                as_of,
+                view=stress_view,
+            )
+        with bottom_right:
+            render_connected_panel(
+                PANEL_IDENTITIES[3],
+                irish_lens,
+                as_of,
+            )
 
 
 def main() -> None:

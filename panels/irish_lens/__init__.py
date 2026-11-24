@@ -668,7 +668,10 @@ def render(as_of: date) -> dict:
           <div class="rr-panel-title-row">
             <div>
               <h2 class="rr-panel-title">Exposure & domestic demand</h2>
-              <p class="rr-panel-summary">{verdict}</p>
+              <p class="rr-panel-summary">Separates domestic demand from
+              headline GDP and tests how US weakness may transmit through
+              trade and employment.</p>
+              <p class="rr-panel-verdict">{verdict}</p>
             </div>
             <div class="rr-score">
               <strong>{panel_signal["score"]:.0f}</strong><span>/100· {panel_signal["status"]}</span>
@@ -717,7 +720,7 @@ def render(as_of: date) -> dict:
             key="irish_export_overview",
         )
 
-    if st.button("Explore panel", key="open_irish"):
+    if st.button("See full Irish analysis", key="open_irish"):
         st.session_state.active_panel = "irish"
         st.rerun()
 
