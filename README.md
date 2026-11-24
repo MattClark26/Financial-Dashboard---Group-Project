@@ -27,7 +27,7 @@ Plots the 10-year minus 3-month and 10-year minus 2-year Treasury spreads from F
 shaded. The code detects inversion episodes and measures the lead time from each inversion to the next
 recession. A probit model built with statsmodels estimates the probability of a recession within 12 months. The
 user can switch between the two spread definitions to compare their track records.
-Panel 2 – The Labour Market Signal – [Student 2]
+Panel 2 – The Labour Market Signal – [Tadhg Findon]
 Calculates the Sahm rule from the US unemployment rate and checks the result against FRED's official series.
 Also shows initial jobless claims and monthly payroll changes. Using archived data releases from ALFRED, the
 panel compares first-published payroll figures with today's revised figures, showing how much the picture
@@ -71,7 +71,7 @@ dashboard still runs if an API is unavailable.
 
 Tools and Deployment
 Python with Pandas, NumPy, Matplotlib/Plotly, statsmodels and Streamlit. Code is hosted on GitHub and the
-dashboard is deployed on Hugging Face Spaces, with the FRED API key stored as a Space secret.
+dashboard can be deployed with the FRED API key stored in the host's secret manager.
 
 ## Running the interface
 
@@ -84,14 +84,27 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+The dashboard runs from committed cache files without credentials. To refresh
+FRED and ALFRED data, open **Data connections & API keys** in the interface and
+paste a free FRED key for the current session. The key is masked, held only in
+process memory and never written to Git. For local or hosted configuration,
+copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and replace
+the placeholder; the real file is ignored by Git. Yahoo Finance and the CSO
+PxStat API do not require keys.
+
 The app opens with a short project briefing and then enters a full-screen
 four-quadrant workspace. A shared time machine controls the historical cutoff
 for every panel, while the connected composite explicitly reports how many
 panels currently contribute to its reading.
 
+All four panels are connected to the shared date and composite contract. Panel
+2 includes the Sahm rule, claims, payrolls, ALFRED revisions and historical
+track record. Panel 4 includes GDP/MDD, Irish Sahm, US export exposure and the
+shared US recession probability.
+
 Panel 3 is connected to the Financial Stress analytical pipeline and can expand
-into a complete overview, interactive backtest, methodology and source-access
-page. Its default
+into a complete overview, interactive backtest, weighting-sensitivity analysis,
+methodology and source-access page. Its default
 interface history is deterministically simulated and labelled as such so the
 layout remains reproducible offline. A user can request a live refresh from the
 expanded panel; public data degrades to runtime cache and then back to the
@@ -103,10 +116,6 @@ The panel aligns observations to completed Friday weeks, calculates causal
 immediately inspect recessions caught, false alarms, precision and median warning
 time. The Sources tab reports data coverage and lag, links every public series,
 and exports the full dated evidence table as CSV for independent checking.
-
-Panels 1, 2 and 4 intentionally remain presentation placeholders in the shared
-workspace. Their existing code is not deleted or represented as Rohi's work;
-their owners can connect each module to the same date and signal contract.
 
 ### Panel folders
 
@@ -129,8 +138,8 @@ collisions. Once a panel is ready, connect it in `app.py` and pass its standard
 | --- | --- |
 | Intro, cursor, time machine and four-panel layout | Rohi Aluede |
 | Financial Stress data, transformations, score and views | Rohi Aluede |
-| Bond Market analysis | Reserved for Luke O'Brien Peterson |
-| Labour Market analysis | Reserved for Tadhg Findon |
+| Bond Market analysis | Luke O'Brien Peterson |
+| Labour Market analysis | Tadhg Findon |
 | Irish Lens analysis | Matthias Clark |
 
 Run the complete automated suite before pushing:
@@ -144,5 +153,12 @@ as-of-date enforcement, causal transformations, bounded scoring, recession and
 alert episode detection, false-alarm evaluation, provenance diagnostics and the
 offline presentation state. No API key is required for the labelled preview or
 for the test suite.
+
+Maintainers can refresh the committed Financial Stress fallback snapshots from
+the documented public endpoints with:
+
+```sh
+PYTHONPATH=. python scripts/refresh_financial_stress_fallbacks.py
+```
 
 Keep changes to the shared shell and dependencies coordinated with the group. Future data integrations must respect release availability at the selected date. Agree the scoring contract before implementing the Recession Thermometer. Store API keys in deployment secrets.
