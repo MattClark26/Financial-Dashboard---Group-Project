@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import statsmodels.api as sm
-from statsmodels.stats.outliers_influence import variance_inflation_factor
 from datetime import date
 from pathlib import Path
 
@@ -221,17 +220,12 @@ def render_full(as_of: date) -> None:
     second_model = sm.Probit(y_second, X_second).fit(disp=False)
 
     third_model = None
-    third_data = model_data.dropna(
-        subset=["recession_12m", "weighted_inversion", "credit_spread"]
-    )
-
-    third_predictors = [
-        "T10Y3M", "weighted_inversion", "credit_spread"
-    ]
+    third_data = model_data.dropna(subset=["recession_12m", "credit_spread"])
+    third_correlation = third_data["credit_spread"].corr(third_data["recession_12m"])
 
     if len(third_data) >= 60 and third_data["recession_12m"].nunique() == 2:
         X_third = sm.add_constant(
-            third_data[third_predictors].astype(float),
+            third_data[["credit_spread"]].astype(float),
             has_constant="add"
         )
         y_third = third_data["recession_12m"].astype(int)
@@ -470,17 +464,15 @@ def render_full(as_of: date) -> None:
             )
         else:
             selected_credit = credit_monthly.reindex(selected_data.index).iloc[0]
-            selected_weighted = weighted_inversion.reindex(selected_data.index).iloc[0]
 
-            if pd.isna(selected_credit) or pd.isna(selected_weighted):
-                st.warning("Not enough data for the Baa credit spread model at this date.")
+            if pd.isna(selected_credit):
+                st.warning("No Baa credit spread data available for this Time Machine date.")
             else:
-                third_input = selected_data[["T10Y3M"]].copy()
-                third_input["weighted_inversion"] = selected_weighted
-                third_input["credit_spread"] = selected_credit
-                third_input = sm.add_constant(
-                    third_input.astype(float), has_constant="add"
+                third_input = pd.DataFrame(
+                    {"credit_spread": [selected_credit]},
+                    index=selected_data.index
                 )
+                third_input = sm.add_constant(third_input, has_constant="add")
                 third_probability = third_model.predict(third_input).iloc[0] * 100
 
                 st.html(
@@ -490,7 +482,7 @@ def render_full(as_of: date) -> None:
                 )
                 st.html(
                     f'<p style="color: #222222;">'
-                    f'Weighted inversion index (24 months): {selected_weighted:.3f}'
+                    f'Historical correlation: {third_correlation:.3f}'
                     f'</p>'
                 )
                 st.html(
@@ -501,21 +493,17 @@ def render_full(as_of: date) -> None:
                 )
                 st.html(
                     '<p style="color: #444444;">'
-                    'The daily Baa credit spread is averaged into monthly values. '
-                    'The model predicts recession status exactly 12 months later.'
+                    'This standalone model uses only the Baa credit spread, averaged monthly, '
+                    'to estimate recession status exactly 12 months later.'
                     '</p>'
                 )
                 st.html('<p style="color: #222222;">Regression coefficients:</p>')
                 st.write(third_model.params)
 
             with st.expander("Baa credit spread historical probabilities"):
-                credit_table = spread[["T10Y3M"]].copy()
-                credit_table["weighted_inversion"] = weighted_inversion
-                credit_table["credit_spread"] = credit_monthly
-                credit_table = credit_table.dropna()
-
+                credit_table = credit_monthly.to_frame(name="credit_spread").dropna()
                 X_credit_history = sm.add_constant(
-                    credit_table[third_predictors].astype(float),
+                    credit_table[["credit_spread"]].astype(float),
                     has_constant="add"
                 )
                 credit_table["Estimated probability (%)"] = (
@@ -529,7 +517,6 @@ def render_full(as_of: date) -> None:
                     .astype("string").fillna("N/A")
                 )
                 credit_table = credit_table.rename(columns={
-                    "weighted_inversion": "Weighted Inversion Index",
                     "credit_spread": "Baa Credit Spread (percentage points)"
                 }).sort_index(ascending=False)
 
@@ -565,22 +552,6 @@ def render_full(as_of: date) -> None:
                         full_table, width="stretch", height=400,
                         key="bond_baa_full_history"
                     )
-
-            with st.expander("Baa credit spread model diagnostics"):
-                correlation_table = third_data[third_predictors].corr().round(2)
-                st.html('<p style="color: #222222;">Predictor correlations</p>')
-                st.dataframe(correlation_table, width="stretch")
-
-                vif_values = [
-                    variance_inflation_factor(X_third.to_numpy(), column)
-                    for column in range(1, len(X_third.columns))
-                ]
-                vif_table = pd.DataFrame({
-                    "Variable": third_predictors,
-                    "VIF": [round(value, 2) for value in vif_values]
-                })
-                st.html('<p style="color: #222222;">Variance inflation factors (VIF)</p>')
-                st.dataframe(vif_table, hide_index=True, width="stretch")
 
     with st.expander("Explore data table"):
         display_data = model_data[model_data.index <= cutoff].tail(12).copy()
