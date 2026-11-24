@@ -4,11 +4,11 @@ from pathlib import Path
 import streamlit as st
 import pandas as pd
 
-from panels import bond_market, financial_stress, irish_lens
+from panels import bond_market, financial_stress, irish_lens, labour_market
 from ui.controls import render_time_machine
 from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
-from ui.panels import PANEL_IDENTITIES, render_connected_panel, render_placeholder
+from ui.panels import PANEL_IDENTITIES, render_connected_panel
 from ui.shell import render_composite, render_topbar
 
 
@@ -32,6 +32,11 @@ def render_workspace() -> None:
             on_click=close_bond_market,
         )
         bond_market.render_full(default_date)
+        return
+
+    if active_panel == "labour":
+        scroll_to_top()
+        labour_market.render_detail(default_date)
         return
 
     stress_view = financial_stress.load_financial_stress_view(default_date)
@@ -61,15 +66,19 @@ def render_workspace() -> None:
         irish_signal = irish_lens.load_irish_lens_signal(
             pd.Timestamp(as_of)
         )
+        labour_signal = labour_market.load_labour_market_signal(as_of)
+        bond_signal = bond_market.load_bond_market_signal(as_of)
         with composite:
             render_composite({
+                "bond": bond_signal["score"],
+                "labour": labour_signal["score"],
                 "stress": stress_view.signal.score,
                 "irish": irish_signal["score"],
             })
 
     render_topbar(
         as_of,
-        connected_count=2,
+        connected_count=4,
     )
 
     for offset in (0, 2):
@@ -92,6 +101,7 @@ def render_workspace() -> None:
                         identity,
                         bond_market,
                         as_of,
+                        signal=bond_signal,
                     )
 
                     st.button(
@@ -108,8 +118,13 @@ def render_workspace() -> None:
                         as_of,
                     )
 
-                else:
-                    render_placeholder(identity)    
+                elif identity.key == "labour":
+                    render_connected_panel(
+                        identity,
+                        labour_market,
+                        as_of,
+                        signal=labour_signal,
+                    )
 
 
 def main() -> None:

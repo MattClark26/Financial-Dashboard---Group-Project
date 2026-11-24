@@ -33,13 +33,38 @@ def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
     )
 
 
-def render(as_of: date) -> None:
+def load_bond_market_signal(as_of: object) -> dict:
+    """Expose the cached recession probability through the shared panel contract."""
+    probability = load_recession_probability(pd.Timestamp(as_of))
+    if probability.empty:
+        return {
+            "score": 50.0,
+            "status": "WATCH",
+            "verdict": "Bond-market probability is unavailable, so this panel is neutral.",
+        }
+
+    score = float(probability.iloc[-1])
+    status = "ALERT" if score >= 67 else "WATCH" if score >= 34 else "CALM"
+    return {
+        "score": score,
+        "status": status,
+        "verdict": (
+            f"The latest cached model assigns a {score:.1f}% US recession probability."
+        ),
+    }
+
+
+def render(as_of: date, *, signal: dict | None = None) -> dict:
+    signal = signal or load_bond_market_signal(as_of)
     st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
     st.html(
         '<p style="color: #444444; margin: 0 0 10px 0;">'
         'Explore Treasury yield curves, inversion signals and US recession probabilities.'
         '</p>'
     )
+    st.metric("Recession probability", f"{signal['score']:.1f}%", signal["status"])
+    st.caption(signal["verdict"])
+    return signal
     st.html(
         f'<p style="color: #666666; margin: 0 0 12px 0;">'
         f'Time Machine: {as_of:%b %Y}'

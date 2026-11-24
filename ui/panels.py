@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from html import escape
 from types import ModuleType
+from typing import Mapping
 
 import streamlit as st
 
@@ -44,13 +45,19 @@ def render_connected_panel(
     identity: PanelIdentity,
     panel: ModuleType,
     as_of: object,
+    *,
+    signal: object | Mapping[str, object] | None = None,
     **render_kwargs: object,
 ) -> object:
     """Mount one existing panel module inside the shared quadrant."""
     with st.container(key=f"panel_{identity.key}"):
         view = render_kwargs.get("view")
-        signal = getattr(view, "signal", None)
-        render_panel_header(identity, status=getattr(signal, "status", "CONNECTED"))
+        resolved_signal = signal or getattr(view, "signal", None)
+        if isinstance(resolved_signal, Mapping):
+            status = str(resolved_signal.get("status", "CONNECTED"))
+        else:
+            status = getattr(resolved_signal, "status", "CONNECTED")
+        render_panel_header(identity, status=status)
         return panel.render(as_of, **render_kwargs)
 
 
