@@ -516,7 +516,7 @@ def render(as_of: date) -> dict:
               <p class="rr-panel-summary">{verdict}</p>
             </div>
             <div class="rr-score">
-              <strong>0</strong><span>/100</span>
+              <strong>{panel_signal["score"]:.0f}</strong><span>/100</span>
             </div>
           </div>
         </div>
@@ -571,9 +571,10 @@ def render(as_of: date) -> dict:
         st.rerun()
 
     return {
-        "score": 0.0,
-        "status": "amber",
+        "score": panel_signal["score"],
+        "status": panel_signal["status"],
         "verdict": verdict,
+        "components": panel_signal["components"],
         "track_record": {
             "caught": 0,
             "false_alarms": 0,
