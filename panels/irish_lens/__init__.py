@@ -951,6 +951,15 @@ def render_detail(as_of: date) -> None:
             is shown as a recession warning.
             """
         )
+        st.write(
+            """
+            Current weights are 35% US recession probability, 25% Irish Sahm,
+            25% US export share, and 15% GDP/MDD divergence. Component scores
+            are bounded from 0 to 100; missing components are omitted and the
+            remaining weights are renormalized. The status bands are CALM
+            below 34, WATCH from 34 through 66, and ALERT at 67 or above.
+            """
+        )
 
     with sources:
         st.html(
