@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st    
 
+from panels.bond_market import load_recession_probability
+
 TITLE = "Irish lens"
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -83,11 +85,17 @@ def _load_export_exposure(
     )
 
     frame = frame.dropna(
-        subset=["Date", "US Exports", "Total Exports"]
+    subset=["Date", "US Exports", "Total Exports"]
     )
+    frame = frame[
+    (frame["US Exports"] >= 0)
+    & (frame["Total Exports"] > 0)
+    ]
     frame = frame[frame["Date"] <= selected_date]
-    frame = frame[frame["Total Exports"] > 0]
-    frame = frame.sort_values("Date")
+    frame = frame.sort_values("Date").drop_duplicates(
+    subset=["Date"],
+    keep="last",
+    )
 
     if frame.empty:
         return pd.DataFrame()
@@ -209,8 +217,11 @@ def _plot_sahm_rule(sahm: pd.DataFrame) -> go.Figure:
 
     figure.add_hline(
         y=0.50,
+        line_color="#d75f47",
+        line_width=3,
         line_dash="dash",
         annotation_text="0.50 trigger",
+        annotation_position="bottom right",
     )
 
     figure.update_layout(
@@ -302,65 +313,6 @@ def _plot_export_exposure(exposure: pd.DataFrame) -> go.Figure:
 
     return figure
     
-def render(as_of: date) -> dict:
-    """Render the Irish Lens panel and return Thermometer metrics."""
-    selected_date = pd.Timestamp(as_of)
-    st.subheader("Panel 4 - The Irish Lens")
-    st.caption(f"Selected date: {selected_date:%Y-%m-%d}")
-    
-    gdp = _slice_to_date(
-        _to_time_series(_read_cached_frame(GDP_CACHE)),
-        selected_date,
-    )
-    mdd = _slice_to_date(
-        _to_time_series(_read_cached_frame(MDD_CACHE)),
-        selected_date,
-    )
-    if not gdp.empty and not mdd.empty:
-        baseline_date = pd.Timestamp("2014-12-31")
-
-        gdp_has_baseline = (gdp.index <= baseline_date).any()
-        mdd_has_baseline = (mdd.index <= baseline_date).any()
-
-        if gdp_has_baseline and mdd_has_baseline:
-            st.plotly_chart(
-                _plot_gdp_vs_mdd(gdp, mdd),
-                width="stretch",
-            )
-            st.caption(
-                "Headline Irish GDP surged in 2015 because of multinational "
-                "intellectual-property onshoring and aircraft-leasing transfers, "
-                "while Modified Domestic Demand better reflects domestic activity."
-            )
-        else:
-            st.info(
-                "GDP and MDD need data through 2014 Q4 for the comparison chart."
-            )
-    else:
-        st.info(
-            "GDP and MDD data are unavailable for the selected date."
-        )
-
-    unemployment = _to_time_series(
-        _read_cached_frame(UNEMPLOYMENT_CACHE)
-    )
-    unemployment = _slice_to_date(unemployment, selected_date)
-
-    if unemployment.empty:
-        st.info(
-            "Irish unemployment data is not available for the selected date."
-        )
-    else:
-        sahm = compute_sahm_rule(unemployment)
-        trigger_count = int(sahm["trigger"].fillna(False).sum())
-        st.caption(
-            f"Irish Sahm Rule observations: {len(sahm)}; "
-            f"triggers: {trigger_count}"
-        )
-        st.plotly_chart(
-            _plot_sahm_rule(sahm),
-            width="stretch",
-        )
     export_exposure = _load_export_exposure(selected_date)
 
     if export_exposure.empty:
@@ -373,15 +325,551 @@ def render(as_of: date) -> dict:
             _plot_export_exposure(export_exposure),
             width="stretch",
         )
-    return { 
-        "score": 0.0,
-        "status": "green",
-        "verdict": "Irish Lens analysis is not available yet.",
+        latest_share = export_exposure["US Share (%)"].iloc[-1]
+        latest_average = export_exposure["12-month average (%)"].dropna()
+
+        if latest_average.empty:
+            st.caption(
+                "US exports account for this share of Irish merchandise exports."
+            )
+        else:
+            latest_average_value = latest_average.iloc[-1]
+            st.caption(
+                f"The latest US export share is {latest_share:.1f}%, with a "
+                f"12-month average of {latest_average_value:.1f}%. "
+                "This indicates exposure, not proof that a US downturn "
+                "will cause an Irish recession."
+            )
+
+def _render_conclusion(text: str) -> None:
+    """Render a readable Panel 4 conclusion beneath a chart."""
+    st.html(
+        f"""
+        <div class="rr-conclusion">
+          <strong>CONCLUSION</strong>
+          <p>{text}</p>
+        </div>
+        """
+    )
+
+def _bound(value: float) -> float:
+    """Keep a component score between 0 and 100."""
+    return max(0.0, min(100.0, float(value)))
+
+
+def score_irish_lens(
+    sahm_indicator: float | None,
+    export_share: float | None,
+    recession_probability: float | None,
+    gdp_index: float | None,
+    mdd_index: float | None,
+) -> dict:
+    components = {}
+    weights = {
+        "us_recession_probability": 0.35,
+        "irish_sahm": 0.25,
+        "us_export_share": 0.25,
+        "gdp_mdd_divergence": 0.15,
+    }
+
+    if recession_probability is not None:
+        components["us_recession_probability"] = _bound(
+            recession_probability
+        )
+
+    if sahm_indicator is not None:
+        components["irish_sahm"] = _bound(
+            sahm_indicator / 0.50 * 67
+        )
+
+    if export_share is not None:
+        components["us_export_share"] = _bound(
+            (export_share - 20) / 20 * 100
+        )
+
+    if gdp_index is not None and mdd_index is not None:
+        divergence = abs(gdp_index - mdd_index)
+        components["gdp_mdd_divergence"] = _bound(
+            divergence / 50 * 100
+        )
+
+    if not components:
+        return {
+            "score": 0.0,
+            "status": "WATCH",
+            "components": {},
+        }
+
+    available_weight = sum(weights[key] for key in components)
+    score = sum(
+        components[key] * weights[key]
+        for key in components
+    ) / available_weight
+
+    status = (
+        "ALERT"
+        if score >= 67
+        else "WATCH"
+        if score >= 34
+        else "CALM"
+    )
+
+    return {
+        "score": round(score, 1),
+        "status": status,
+        "components": components,
+    }
+
+def load_irish_lens_signal(
+    selected_date: pd.Timestamp,
+) -> dict:
+    gdp = _slice_to_date(
+        _to_time_series(_read_cached_frame(GDP_CACHE)),
+        selected_date,
+    )
+    mdd = _slice_to_date(
+        _to_time_series(_read_cached_frame(MDD_CACHE)),
+        selected_date,
+    )
+    unemployment = _slice_to_date(
+        _to_time_series(_read_cached_frame(UNEMPLOYMENT_CACHE)),
+        selected_date,
+    )
+    export_exposure = _load_export_exposure(selected_date)
+    recession_probability = load_recession_probability(selected_date)
+
+    sahm_indicator = None
+    if not unemployment.empty:
+        sahm = compute_sahm_rule(unemployment)
+        valid_sahm = sahm["sahm_indicator"].dropna()
+        if not valid_sahm.empty:
+            sahm_indicator = float(valid_sahm.iloc[-1])
+
+    export_share = None
+    if not export_exposure.empty:
+        valid_average = export_exposure[
+            "12-month average (%)"
+        ].dropna()
+        if not valid_average.empty:
+            export_share = float(valid_average.iloc[-1])
+
+    us_probability = None
+    if not recession_probability.empty:
+        us_probability = float(recession_probability.iloc[-1])
+
+    gdp_index = None
+    mdd_index = None
+    if not gdp.empty and not mdd.empty:
+        baseline_date = pd.Timestamp("2014-12-31")
+        gdp_baseline = gdp[gdp.index <= baseline_date]
+        mdd_baseline = mdd[mdd.index <= baseline_date]
+        if not gdp_baseline.empty and not mdd_baseline.empty:
+            gdp_index = float(gdp.iloc[-1] / gdp_baseline.iloc[-1] * 100)
+            mdd_index = float(mdd.iloc[-1] / mdd_baseline.iloc[-1] * 100)
+
+    return score_irish_lens(
+        sahm_indicator=sahm_indicator,
+        export_share=export_share,
+        recession_probability=us_probability,
+        gdp_index=gdp_index,
+        mdd_index=mdd_index,
+    )
+    
+def render(as_of: date) -> dict:
+    """Render the compact Irish Lens quadrant."""
+    selected_date = pd.Timestamp(as_of)
+
+    gdp = _slice_to_date(
+        _to_time_series(_read_cached_frame(GDP_CACHE)),
+        selected_date,
+    )
+    mdd = _slice_to_date(
+        _to_time_series(_read_cached_frame(MDD_CACHE)),
+        selected_date,
+    )
+    unemployment = _slice_to_date(
+        _to_time_series(_read_cached_frame(UNEMPLOYMENT_CACHE)),
+        selected_date,
+    )
+    export_exposure = _load_export_exposure(selected_date)
+    recession_probability = load_recession_probability(selected_date)
+
+    sahm_indicator = None
+    if not unemployment.empty:
+        sahm = compute_sahm_rule(unemployment)
+        if not sahm["sahm_indicator"].dropna().empty:
+            sahm_indicator = float(
+                sahm["sahm_indicator"].dropna().iloc[-1]
+            )
+
+    latest_export_share = None
+    if not export_exposure.empty:
+        rolling_average = export_exposure[
+            "12-month average (%)"
+        ].dropna()
+        if not rolling_average.empty:
+            latest_export_share = float(rolling_average.iloc[-1])
+
+    latest_recession_probability = None
+    if not recession_probability.empty:
+        latest_recession_probability = float(
+            recession_probability.iloc[-1]
+        )
+
+    gdp_index = None
+    mdd_index = None
+    if not gdp.empty and not mdd.empty:
+        baseline_date = pd.Timestamp("2014-12-31")
+        gdp_baseline = gdp[gdp.index <= baseline_date]
+        mdd_baseline = mdd[mdd.index <= baseline_date]
+        if not gdp_baseline.empty and not mdd_baseline.empty:
+            gdp_index = float(gdp.iloc[-1] / gdp_baseline.iloc[-1] * 100)
+            mdd_index = float(mdd.iloc[-1] / mdd_baseline.iloc[-1] * 100)
+
+    panel_signal = score_irish_lens(
+        sahm_indicator=sahm_indicator,
+        export_share=latest_export_share,
+        recession_probability=latest_recession_probability,
+        gdp_index=gdp_index,
+        mdd_index=mdd_index,
+    )
+
+    trigger_count = 0
+    if not unemployment.empty:
+        sahm = compute_sahm_rule(unemployment)
+        trigger_count = int(sahm["trigger"].fillna(False).sum())
+
+    latest_export_share = None
+    if not export_exposure.empty:
+        latest_export_share = float(
+            export_exposure["US Share (%)"].iloc[-1]
+        )
+
+    score = panel_signal["score"]
+    status = panel_signal["status"]
+
+    if status == "ALERT":
+        verdict = (
+        "Multiple Irish Lens indicators indicate acute recession risk; "
+        "the evidence is broad but does not prove a recession."
+        )
+    elif status == "WATCH":
+        verdict = (
+        "Irish Lens indicators are mixed or moderately elevated; "
+        "monitor US transmission and domestic warning signals."
+        )
+    else:
+        verdict = (
+        "Irish Lens indicators remain contained relative to the "
+        "current scoring thresholds."
+        )
+
+    st.html(
+        f"""
+        <div class="rr-panel-body">
+          <div class="rr-panel-title-row">
+            <div>
+              <h2 class="rr-panel-title">Exposure & domestic demand</h2>
+              <p class="rr-panel-summary">{verdict}</p>
+            </div>
+            <div class="rr-score">
+              <strong>{panel_signal["score"]:.0f}</strong><span>/100· {panel_signal["status"]}</span>
+            </div>
+          </div>
+        </div>
+        """
+    )
+
+    export_value = (
+        f"{latest_export_share:.1f}%"
+        if latest_export_share is not None
+        else "—"
+    )
+    gdp_available = "YES" if not gdp.empty else "NO"
+    mdd_available = "YES" if not mdd.empty else "NO"
+
+    st.html(
+        f"""
+        <div class="rr-metric-grid">
+          <div class="rr-metric">
+            <span>US EXPORT SHARE</span>
+            <strong>{export_value}</strong>
+          </div>
+          <div class="rr-metric">
+            <span>SAHM TRIGGERS</span>
+            <strong>{trigger_count}</strong>
+          </div>
+          <div class="rr-metric">
+            <span>GDP / MDD</span>
+            <strong>{gdp_available} / {mdd_available}</strong>
+          </div>
+        </div>
+        """
+    )
+
+    if export_exposure.empty:
+        st.info(
+            "Irish export exposure data is not available "
+            "for the selected date."
+        )
+    else:
+        st.plotly_chart(
+            _plot_export_exposure(export_exposure),
+            width="stretch",
+            config={
+                "displayModeBar": False,
+                "responsive": True,
+            },
+            key="irish_export_overview",
+        )
+
+    if st.button("Explore panel", key="open_irish"):
+        st.session_state.active_panel = "irish"
+        st.rerun()
+
+    return {
+        "score": panel_signal["score"],
+        "status": panel_signal["status"],
+        "verdict": verdict,
+        "components": panel_signal["components"],
         "track_record": {
             "caught": 0,
             "false_alarms": 0,
             "avg_lead_months": 0,
         },
-   }
-  
+    }
+
+def render_detail(as_of: date) -> None:
+    """Render the full Irish Lens individual-panel view."""
+    selected_date = pd.Timestamp(as_of)
+    panel_signal = load_irish_lens_signal(selected_date)
+    actions = st.columns([1, 1, 4], vertical_alignment="center")
+
+    with actions[0]:
+        if st.button("Back to all signals", key="back_to_dashboard"):
+            st.session_state.active_panel = None
+            st.rerun()
+
+    st.html(
+        f"""
+        <section class="rr-detail-hero">
+          <div>
+            <p class="rr-kicker">
+              PANEL 04 / IRISH LENS / MATTHIAS CLARK
+            </p>
+            <h1 class="rr-detail-title">Exposure & domestic demand</h1>
+            <p class="rr-detail-lede">
+              Irish economic activity, labour-market pressure and exposure
+              to the United States, assessed within one historical-date view.
+            </p>
+          </div>
+          <div class="rr-detail-score">
+            <strong>{panel_signal["score"]:.0f}</strong>
+            <span>/100 · {panel_signal["status"]}</span>
+          </div>
+        </section>
+        """
+    )
+    gdp_tab, sahm_tab, exports_tab, probability_tab, method, sources = st.tabs(
+        [
+            "GDP & MDD",
+            "Irish Sahm Rule",
+            "US Export Exposure",
+            "US Recession Probability",
+            "Method",
+            "Sources",
+        ]
+    )
+
+    gdp = _slice_to_date(
+        _to_time_series(_read_cached_frame(GDP_CACHE)),
+        selected_date,
+    )
+    mdd = _slice_to_date(
+        _to_time_series(_read_cached_frame(MDD_CACHE)),
+        selected_date,
+    )
+    unemployment = _slice_to_date(
+        _to_time_series(_read_cached_frame(UNEMPLOYMENT_CACHE)),
+        selected_date,
+    )
+    export_exposure = _load_export_exposure(selected_date)
+    recession_probability = load_recession_probability(selected_date)
+
+    with gdp_tab:
+        if gdp.empty or mdd.empty:
+            st.info("GDP and MDD data are unavailable for this date.")
+        else:
+            st.plotly_chart(
+               _plot_gdp_vs_mdd(gdp, mdd),
+               width="stretch",
+               config={"displayModeBar": False, "responsive": True},
+               key="irish_gdp_mdd_tab",
+            )
+            _render_conclusion(
+                "Headline GDP has risen sharply compared with 2014 Q4, "
+                "while Modified Domestic Demand provides a steadier view "
+                "of domestic activity. GDP can include multinational "
+                "distortions."
+            )
+            
+    with sahm_tab:
+        if unemployment.empty:
+            st.info("Irish unemployment data is unavailable for this date.")
+        else:
+            sahm = compute_sahm_rule(unemployment)
+            trigger_count = int(sahm["trigger"].fillna(False).sum())
+
+            st.plotly_chart(
+                _plot_sahm_rule(sahm),
+                width="stretch",
+                config={"displayModeBar": False, "responsive": True},
+                key="irish_sahm_tab",
+            )
+
+            if trigger_count == 0:
+                _render_conclusion(
+                    "The Irish Sahm indicator has not reached its "
+                    "0.50-point trigger."
+                )
+            else:
+                _render_conclusion(
+                    f"The Irish Sahm indicator has crossed the "
+                    f"0.50-point trigger {trigger_count} time(s). "
+                    "This is a warning indicator, not proof of recession."
+                )
+    with exports_tab:
+        if export_exposure.empty:
+            st.info(
+                "Irish export exposure data is unavailable for this date."
+            )
+        else:
+            st.plotly_chart(
+               _plot_export_exposure(export_exposure),
+               width="stretch",
+               config={"displayModeBar": False, "responsive": True},
+               key="irish_export_tab",
+            )
+            latest_share = float(
+                export_exposure["US Share (%)"].iloc[-1]
+            )
+            rolling_average = export_exposure[
+                "12-month average (%)"
+            ].dropna()
+
+            if rolling_average.empty:
+                _render_conclusion(
+                    f"The latest US share of Irish exports is "
+                    f"{latest_share:.1f}%. "
+                    "This indicates exposure, not proof that a US "
+                    "downturn will cause an Irish recession."
+                )
+            else:
+                latest_average = float(rolling_average.iloc[-1])
+                _render_conclusion(
+                    f"The latest US share of Irish exports is "
+                    f"{latest_share:.1f}%, with a 12-month average of "
+                    f"{latest_average:.1f}%. "
+                    "This indicates exposure, not proof that a US "
+                    "downturn will cause an Irish recession."
+                )
+
+    with probability_tab:
+        st.html(
+            f"""
+            <div class="rr-section-head">
+              <span>US RECESSION PROBABILITY</span>
+              <strong>12-Month Baseline Probit · AS OF {selected_date:%d %b %Y}</strong>
+            </div>
+            """
+        )
+
+        if recession_probability.empty:
+            st.info(
+                "US recession probability is unavailable for this date."
+            )
+        else:
+            probability_figure = go.Figure()
+
+            probability_figure.add_trace(
+                go.Scatter(
+                    x=recession_probability.index,
+                    y=recession_probability,
+                    mode="lines",
+                    name="Recession probability",
+                    line={"color": "#d75f47", "width": 2},
+                )
+            )
+
+            probability_figure.update_layout(
+                title="Estimated US Recession Probability",
+                xaxis_title="Date",
+                yaxis_title="Probability (%)",
+                yaxis_range=[0, 100],
+                hovermode="x unified",
+            )
+
+            st.plotly_chart(
+                probability_figure,
+                width="stretch",
+                config={
+                    "displayModeBar": False,
+                    "responsive": True,
+                },
+                key="irish_us_recession_probability",
+            )
+
+            latest_probability = float(recession_probability.iloc[-1])
+
+            _render_conclusion(
+                f"The latest estimated probability of a US recession "
+                f"within the next 12 months is "
+                f"{latest_probability:.1f}%. "
+                "This is a model estimate, not a certainty."
+            )
+    with method:
+        st.html(
+            """
+            <div class="rr-section-head">
+              <span>METHOD</span>
+              <strong>CACHE-FIRST CALCULATION</strong>
+            </div>
+            """
+        )
+        st.info(
+            "US export share is calculated as US exports divided by total "
+            "Irish exports, multiplied by 100. The result is accompanied "
+            "by a 12-month rolling average."
+        )
+        st.write(
+            """
+            GDP and MDD are indexed using 2014 Q4 as the common baseline.
+            The Irish Sahm indicator compares the three-month unemployment
+            average with its twelve-month minimum. The 0.50-point threshold
+            is shown as a recession warning.
+            """
+        )
+
+    with sources:
+        st.html(
+            """
+            <div class="rr-section-head">
+              <span>SOURCES</span>
+              <strong>CSO CACHE-FIRST</strong>
+            </div>
+            """
+        )
+        st.write(
+            """
+            - Central Statistics Office TSM10: country-level Irish exports
+            - Central Statistics Office TSM01: total Irish exports
+            - Central Statistics Office NAQ01: headline GDP
+            - Central Statistics Office NAQ05: modified domestic demand
+            - Central Statistics Office MUM01: monthly unemployment
+            """
+        )
+        st.info(
+            "Local CSV caches are used to keep the dashboard functional "
+            "offline. Cached observations are filtered by the selected date."
+        )
    

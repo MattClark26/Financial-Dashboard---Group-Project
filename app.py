@@ -1,8 +1,8 @@
-
 from datetime import date
 from pathlib import Path
 
 import streamlit as st
+import pandas as pd
 
 from panels import bond_market, financial_stress, irish_lens
 from ui.controls import render_time_machine
@@ -29,30 +29,48 @@ def render_workspace() -> None:
         st.button(
             "← Back to dashboard",
             key="bond_market_back",
-            on_click=close_bond_market
+            on_click=close_bond_market,
         )
         bond_market.render_full(default_date)
         return
 
     stress_view = financial_stress.load_financial_stress_view(default_date)
 
-    if active_panel == "stress":
+    if active_panel == "irish":
         scroll_to_top()
-        financial_stress.render_detail(default_date, view=stress_view)
+        irish_lens.render_detail(default_date)
         return
 
-    render_topbar(default_date)
+    if active_panel == "stress":
+        scroll_to_top()
+        financial_stress.render_detail(
+            default_date,
+            view=stress_view,
+        )
+        return
 
     with st.container(key="control_deck"):
         timeline, composite = st.columns(
-            [3, 2], gap="large", vertical_alignment="center"
+            [3, 2],
+            gap="large",
+            vertical_alignment="center",
         )
 
         with timeline:
             as_of = render_time_machine(default_date)
-
+        irish_signal = irish_lens.load_irish_lens_signal(
+            pd.Timestamp(as_of)
+        )
         with composite:
-            render_composite({"stress": stress_view.signal.score})
+            render_composite({
+                "stress": stress_view.signal.score,
+                "irish": irish_signal["score"],
+            })
+
+    render_topbar(
+        as_of,
+        connected_count=2,
+    )
 
     for offset in (0, 2):
         columns = st.columns(2, gap=None)
@@ -66,32 +84,32 @@ def render_workspace() -> None:
                         identity,
                         financial_stress,
                         as_of,
-                        view=stress_view
+                        view=stress_view,
                     )
 
                 elif identity.key == "bond":
                     render_connected_panel(
                         identity,
                         bond_market,
-                        as_of
+                        as_of,
                     )
 
                     st.button(
                         "Explore Bond Market",
                         key="bond_market_open",
                         width="stretch",
-                        on_click=open_bond_market
+                        on_click=open_bond_market,
                     )
 
                 elif identity.key == "irish":
                     render_connected_panel(
                         identity,
                         irish_lens,
-                        as_of
+                        as_of,
                     )
 
                 else:
-                    render_placeholder(identity)
+                    render_placeholder(identity)    
 
 
 def main() -> None:
