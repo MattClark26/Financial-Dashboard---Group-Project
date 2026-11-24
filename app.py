@@ -8,6 +8,7 @@ from panels import bond_market, financial_stress, irish_lens, labour_market
 from ui.controls import render_time_machine
 from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
+from ui.navigation import render_back_to_signals
 from ui.panels import PANEL_IDENTITIES, render_connected_panel
 from ui.shell import render_composite, render_topbar
 
@@ -16,26 +17,19 @@ def open_bond_market() -> None:
     st.session_state["active_panel"] = "bond"
 
 
-def close_bond_market() -> None:
-    st.session_state["active_panel"] = None
-
-
 def render_workspace() -> None:
     default_date = st.session_state.get("as_of", date.today())
     active_panel = st.session_state.get("active_panel")
 
     if active_panel == "bond":
         scroll_to_top()
-        st.button(
-            "← Back to dashboard",
-            key="bond_market_back",
-            on_click=close_bond_market,
-        )
+        render_back_to_signals(key="bond_market_back")
         bond_market.render_full(default_date)
         return
 
     if active_panel == "labour":
         scroll_to_top()
+        render_back_to_signals(key="labour_market_back")
         labour_market.render_detail(default_date)
         return
 
@@ -43,11 +37,13 @@ def render_workspace() -> None:
 
     if active_panel == "irish":
         scroll_to_top()
+        render_back_to_signals(key="irish_lens_back")
         irish_lens.render_detail(default_date)
         return
 
     if active_panel == "stress":
         scroll_to_top()
+        render_back_to_signals(key="financial_stress_back")
         financial_stress.render_detail(
             default_date,
             view=stress_view,

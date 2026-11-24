@@ -651,13 +651,6 @@ def render_detail(as_of: date) -> None:
     """Render the full Irish Lens individual-panel view."""
     selected_date = pd.Timestamp(as_of)
     panel_signal = load_irish_lens_signal(selected_date)
-    actions = st.columns([1, 1, 4], vertical_alignment="center")
-
-    with actions[0]:
-        if st.button("Back to all signals", key="back_to_dashboard"):
-            st.session_state.active_panel = None
-            st.rerun()
-
     st.html(
         f"""
         <section class="rr-detail-hero">

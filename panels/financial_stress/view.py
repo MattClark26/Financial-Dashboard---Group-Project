@@ -197,13 +197,7 @@ def _backtest_figure(view: FinancialStressView, result: BacktestResult) -> go.Fi
 
 def render_detail(as_of: date, *, view: FinancialStressView) -> None:
     """Render Rohi Aluede's full-page analysis with method and provenance."""
-    actions = st.columns([1, 1, 4], vertical_alignment="center")
-    with actions[0]:
-        if st.button("Back to all signals", key="back_to_dashboard"):
-            st.session_state.active_panel = None
-            st.rerun()
-    with actions[1]:
-        refresh = st.button("Load live public data", key="load_live_data")
+    refresh = st.button("Load live public data", key="load_live_data")
     state = load_financial_stress_view(pd.Timestamp(as_of), prefer_live=True) if refresh else view
     signal = state.signal
 
