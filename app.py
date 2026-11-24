@@ -11,6 +11,7 @@ from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
 from ui.navigation import render_back_to_signals
 from ui.panels import PANEL_IDENTITIES, render_connected_panel
+from ui.signal_lab import render_signal_lab
 from ui.shell import render_composite, render_topbar
 
 
@@ -20,6 +21,10 @@ def open_bond_market() -> None:
 
 def open_connections() -> None:
     st.session_state["active_panel"] = "connections"
+
+
+def open_signal_lab() -> None:
+    st.session_state["active_panel"] = "signal_lab"
 
 
 def render_workspace() -> None:
@@ -46,6 +51,12 @@ def render_workspace() -> None:
         return
 
     stress_view = financial_stress.load_financial_stress_view(default_date)
+
+    if active_panel == "signal_lab":
+        scroll_to_top()
+        render_back_to_signals(key="signal_lab_back")
+        render_signal_lab(stress_view)
+        return
 
     if active_panel == "irish":
         scroll_to_top()
@@ -88,10 +99,18 @@ def render_workspace() -> None:
         as_of,
         connected_count=4,
     )
-    st.button(
+    lab_action, connection_action, _ = st.columns([1, 1, 3])
+    lab_action.button(
+        "Open 3D Signal Lab",
+        key="open_signal_lab",
+        on_click=open_signal_lab,
+        width="stretch",
+    )
+    connection_action.button(
         "Data connections & API keys",
         key="open_data_connections",
         on_click=open_connections,
+        width="stretch",
     )
 
     for offset in (0, 2):
