@@ -340,13 +340,9 @@ def _plot_export_exposure(exposure: pd.DataFrame) -> go.Figure:
                 "This indicates exposure, not proof that a US downturn "
                 "will cause an Irish recession."
             )
-
-    st.info(
-        "US recession-risk transmission data is pending Panel 1 integration."
-    )
     return { 
         "score": 0.0,
-        "status": "amber",
+        "status": panel_signal["status"].lower(),
         "verdict": "Irish Lens indicators are available; transmission score is pending.",
         "track_record": {
             "caught": 0,
@@ -559,8 +555,24 @@ def render(as_of: date) -> dict:
             export_exposure["US Share (%)"].iloc[-1]
         )
 
-    verdict = "Irish Lens indicators are available; US transmission is pending."
-    status = "WATCH"
+    score = panel_signal["score"]
+    status = panel_signal["status"]
+
+    if status == "ALERT":
+        verdict = (
+        "Multiple Irish Lens indicators indicate acute recession risk; "
+        "the evidence is broad but does not prove a recession."
+        )
+    elif status == "WATCH":
+        verdict = (
+        "Irish Lens indicators are mixed or moderately elevated; "
+        "monitor US transmission and domestic warning signals."
+        )
+    else:
+        verdict = (
+        "Irish Lens indicators remain contained relative to the "
+        "current scoring thresholds."
+        )
 
     st.html(
         f"""
