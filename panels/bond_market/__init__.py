@@ -33,6 +33,7 @@ def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
     )
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_fred_series(name: str):
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={name}"
     backup = DATA_DIR / f"{name}.csv"
@@ -56,6 +57,83 @@ def load_fred_series(name: str):
     return None
 
 
+def completed_month(as_of: date) -> pd.Timestamp:
+    cutoff = pd.Timestamp(as_of)
+    if cutoff != cutoff + pd.offsets.MonthEnd(0):
+        cutoff = cutoff - pd.offsets.MonthEnd(1)
+    return cutoff
+
+
+def percentile_rank(values: pd.Series) -> int:
+    current_value = values.iloc[-1]
+    below = (values < current_value).sum()
+    equal = (values == current_value).sum()
+    return max(1, min(100, round(100 * (below + 0.5 * equal) / len(values))))
+
+
+def get_warning_score(as_of: date):
+    treasury_frame = load_fred_series("T10Y3M")
+    recession_frame = load_fred_series("USREC")
+    baa_frame = load_fred_series("BAA10Y")
+
+    if treasury_frame is None or recession_frame is None or baa_frame is None:
+        return None
+
+    spread = treasury_frame[["T10Y3M"]].resample("ME").mean()
+    recession = recession_frame[["USREC"]].resample("ME").last()
+    credit = baa_frame[["BAA10Y"]].resample("ME").mean()
+
+    baseline_training = spread.join(recession).dropna()
+    baseline_training["recession_12m"] = baseline_training["USREC"].shift(-12)
+    baseline_training = baseline_training.dropna(subset=["recession_12m"])
+
+    credit_training = credit.join(recession).dropna()
+
+    if (len(baseline_training) < 60 or
+            baseline_training["recession_12m"].nunique() < 2 or
+            len(credit_training) < 60 or credit_training["USREC"].nunique() < 2):
+        return None
+
+    try:
+        baseline_X = sm.add_constant(baseline_training[["T10Y3M"]], has_constant="add")
+        baseline_model = sm.Probit(
+            baseline_training["recession_12m"].astype(int), baseline_X
+        ).fit(disp=False)
+
+        credit_X = sm.add_constant(credit_training[["BAA10Y"]], has_constant="add")
+        credit_model = sm.Probit(
+            credit_training["USREC"].astype(int), credit_X
+        ).fit(disp=False)
+    except Exception:
+        return None
+
+    joint = spread.join(credit, how="inner").dropna()
+    joint = joint[joint.index <= completed_month(as_of)]
+    if len(joint) < 24:
+        return None
+
+    joint["yield_probability"] = baseline_model.predict(
+        sm.add_constant(joint[["T10Y3M"]], has_constant="add")
+    ) * 100
+    joint["credit_probability"] = credit_model.predict(
+        sm.add_constant(joint[["BAA10Y"]], has_constant="add")
+    ) * 100
+
+    yield_rank = percentile_rank(joint["yield_probability"])
+    credit_rank = percentile_rank(joint["credit_probability"])
+    score = round(0.70 * yield_rank + 0.30 * credit_rank)
+
+    return {
+        "score": score,
+        "yield_rank": yield_rank,
+        "credit_rank": credit_rank,
+        "yield_probability": joint["yield_probability"].iloc[-1],
+        "credit_probability": joint["credit_probability"].iloc[-1],
+        "observation_month": joint.index[-1],
+        "comparison_months": len(joint)
+    }
+
+
 def render(as_of: date) -> None:
     st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
     st.html(
@@ -68,6 +146,24 @@ def render(as_of: date) -> None:
         f'Time Machine: {as_of:%b %Y}'
         f'</p>'
     )
+
+    warning = get_warning_score(as_of)
+    if warning is None:
+        st.html(
+            '<p style="color: #666666; margin: 0;">'
+            'Bond Market and Credit Spread Warning Score: unavailable (check historical BAA10Y data).'
+            '</p>'
+        )
+    else:
+        st.html(
+            f'<p style="color: #222222; font-size: 22px; margin: 0;">'
+            f'Bond Market and Credit Spread Warning Score: <strong>{warning["score"]}/100</strong>'
+            f'</p>'
+            f'<p style="color: #666666; margin: 0;">'
+            f'Historical recession warning index, as of {warning["observation_month"]:%b %Y}; '
+            f'not a recession probability.'
+            f'</p>'
+        )
 
 
 def render_full(as_of: date) -> None:
@@ -219,12 +315,21 @@ def render_full(as_of: date) -> None:
     y_second = second_data["recession_12m"].astype(int)
     second_model = sm.Probit(y_second, X_second).fit(disp=False)
 
+    third_model = None
+    third_data = model_data.dropna(subset=["credit_spread", "USREC"])
+    if len(third_data) >= 60 and third_data["USREC"].nunique() == 2:
+        X_third = sm.add_constant(
+            third_data[["credit_spread"]].astype(float), has_constant="add"
+        )
+        y_third = third_data["USREC"].astype(int)
+        try:
+            third_model = sm.Probit(y_third, X_third).fit(disp=False)
+        except Exception:
+            third_model = None
+
     # Time Machine
 
-    cutoff = pd.Timestamp(as_of)
-
-    if cutoff != cutoff + pd.offsets.MonthEnd(0):
-        cutoff = cutoff - pd.offsets.MonthEnd(1)
+    cutoff = completed_month(as_of)
 
     selected_data = spread[spread.index <= cutoff].dropna().tail(1)
 
@@ -274,9 +379,51 @@ def render_full(as_of: date) -> None:
         model_data["recession_12m"].notna()
     ].copy()
 
-    tab1, tab2 = st.tabs([
+    # Bond market warning score
+
+    warning = get_warning_score(as_of)
+    st.html('<h3 style="color: #222222; margin-bottom: 4px;">Bond Market and Credit Spread Warning Score</h3>')
+    if warning is None:
+        st.warning(
+            "Warning score unavailable for this Time Machine date. "
+            "It requires historical Treasury, recession and BAA10Y data."
+        )
+    else:
+        st.metric("Historical recession warning index", f'{warning["score"]}/100')
+        st.progress(warning["score"])
+        st.html(
+            f'<p style="color: #222222;">'
+            f'Yield curve percentile: <strong>{warning["yield_rank"]}/100</strong> '
+            f'(70% weight) &nbsp;|&nbsp; '
+            f'Credit stress percentile: <strong>{warning["credit_rank"]}/100</strong> '
+            f'(30% weight)'
+            f'</p>'
+        )
+        st.caption(
+            f'Observation: {warning["observation_month"]:%b %Y}. '
+            f'Ranked against {warning["comparison_months"]} months available '
+            'up to this Time Machine date, beginning in the Baa data period. '
+            'A score of 80 is not an 80% chance of recession.'
+        )
+        with st.expander("How the warning score is calculated"):
+            st.write(
+                "The Baseline estimates the probability of being in recession "
+                "exactly 12 months later. The Baa model estimates whether "
+                "the economy is in recession in the current month. "
+                "Each model's probability is ranked against its own historical "
+                "probabilities observed through the selected month. "
+                "The warning score is 70% of the yield percentile plus "
+                "30% of the credit percentile, rounded to a whole number. "
+                "Weights are illustrative, not statistically optimized. "
+                "The Probit coefficients use the full available historical dataset, "
+                "so past Time Machine scores are retrospective estimates, "
+                "not genuine forecasts made at that time."
+            )
+
+    tab1, tab2, tab3 = st.tabs([
         "Baseline",
-        "Weighted inversion"
+        "Weighted inversion",
+        "Baa credit spreads (current)"
     ])
 
     with tab1:
@@ -438,6 +585,103 @@ def render_full(as_of: date) -> None:
                     full_table, width="stretch", height=400,
                     key="bond_weighted_full_history"
                 )
+
+    with tab3:
+        if third_model is None:
+            st.warning(
+                "Baa recession nowcast unavailable. "
+                "Check that data/BAA10Y.csv contains enough historical observations."
+            )
+        else:
+            credit_available = credit_monthly[credit_monthly.index <= cutoff].dropna()
+            if credit_available.empty:
+                st.warning("No Baa credit spread data available for this date.")
+            else:
+                selected_credit = credit_available.iloc[-1]
+                selected_credit_month = credit_available.index[-1]
+                third_input = pd.DataFrame(
+                    {"credit_spread": [selected_credit]}, index=[selected_credit_month]
+                )
+                third_input = sm.add_constant(third_input, has_constant="add")
+                third_probability = third_model.predict(third_input).iloc[0] * 100
+                credit_correlation = third_data["credit_spread"].corr(third_data["USREC"])
+
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f'Estimated probability of recession now: {third_probability:.1f}%'
+                    f'</p>'
+                )
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f"Moody's Baa credit spread ({selected_credit_month:%b %Y}): "
+                    f'{selected_credit:.2f} percentage points'
+                    f'</p>'
+                )
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f'Historical correlation with same-month recession: '
+                    f'{credit_correlation:.3f}'
+                    f'</p>'
+                )
+                st.caption(
+                    "This is a same-month recession nowcast based on credit spreads, "
+                    "not a 12-month-ahead forecast or an official recession determination."
+                )
+                st.html('<p style="color: #222222;">Regression coefficients:</p>')
+                st.write(third_model.params)
+
+            with st.expander("Baa current-recession historical probabilities"):
+                credit_table = credit_monthly.dropna().to_frame("credit_spread")
+                X_credit = sm.add_constant(
+                    credit_table[["credit_spread"]], has_constant="add"
+                )
+                credit_table["Estimated probability of recession now (%)"] = (
+                    third_model.predict(X_credit) * 100
+                ).round(2)
+                credit_table["Actual recession this month"] = (
+                    recession["USREC"].astype("Int64")
+                )
+                credit_table["Actual recession this month"] = (
+                    credit_table["Actual recession this month"]
+                    .astype("string").fillna("N/A")
+                )
+                credit_table = credit_table.rename(columns={
+                    "credit_spread": "Baa Credit Spread (percentage points)"
+                }).sort_index(ascending=False)
+
+                selected_period = credit_table[
+                    credit_table.index <= cutoff
+                ].head(13).copy()
+                if selected_period.empty:
+                    st.info("No credit-spread probabilities available for this date.")
+                else:
+                    selected_month = selected_period.index.max()
+                    st.html(
+                        f'<p style="color: #222222;">'
+                        f'Selected period: {selected_month:%b %Y} '
+                        f'and the previous 12 months'
+                        f'</p>'
+                    )
+                    selected_period.index = selected_period.index.strftime("%b %Y")
+                    selected_period.index.name = "Month"
+                    st.dataframe(selected_period, width="stretch", height=500)
+
+                if st.checkbox("Show full historical series", key="baa_now_full_history"):
+                    full_table = credit_table.copy()
+                    first_month = full_table.index.min()
+                    last_month = full_table.index.max()
+                    st.html(
+                        f'<p style="color: #222222;">'
+                        f'Full historical data: {first_month:%b %Y} '
+                        f'to {last_month:%b %Y}'
+                        f'</p>'
+                    )
+                    full_table.index = full_table.index.strftime("%b %Y")
+                    full_table.index.name = "Month"
+                    st.dataframe(
+                        full_table, width="stretch", height=400,
+                        key="bond_baa_now_full_history"
+                    )
 
     with st.expander("Explore data table"):
         display_data = model_data[model_data.index <= cutoff].tail(12).copy()
