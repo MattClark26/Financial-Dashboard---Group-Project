@@ -227,11 +227,13 @@ def render_full(as_of: date) -> None:
     second_model = sm.Probit(y_second, X_second).fit(disp=False)
 
     third_model = None
-    third_data = model_data.dropna(subset=["recession_12m", "debt_change_1y"])
+    third_data = model_data.dropna(
+        subset=["recession_12m", "weighted_inversion", "debt_change_1y"]
+    )
 
     if len(third_data) >= 60 and third_data["recession_12m"].nunique() == 2:
         X_third = sm.add_constant(
-            third_data[["T10Y3M", "debt_change_1y"]].astype(float),
+            third_data[["T10Y3M", "weighted_inversion", "debt_change_1y"]].astype(float),
             has_constant="add"
         )
         y_third = third_data["recession_12m"].astype(int)
@@ -470,11 +472,13 @@ def render_full(as_of: date) -> None:
         else:
             selected_debt = debt_monthly.reindex(selected_data.index).iloc[0]
             selected_change = debt_change_monthly.reindex(selected_data.index).iloc[0]
+            selected_weighted = weighted_inversion.reindex(selected_data.index).iloc[0]
 
-            if pd.isna(selected_change):
-                st.warning("No available annual government debt change for this date.")
+            if pd.isna(selected_change) or pd.isna(selected_weighted):
+                st.warning("Not enough historical data for the government debt model at this date.")
             else:
                 third_input = selected_data[["T10Y3M"]].copy()
+                third_input["weighted_inversion"] = selected_weighted
                 third_input["debt_change_1y"] = selected_change
                 third_input = sm.add_constant(
                     third_input.astype(float), has_constant="add"
@@ -484,6 +488,11 @@ def render_full(as_of: date) -> None:
                 st.html(
                     f'<p style="color: #222222;">'
                     f'Recession probability (12 months ahead): {third_probability:.1f}%'
+                    f'</p>'
+                )
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f'Weighted inversion index (24 months): {selected_weighted:.3f}'
                     f'</p>'
                 )
                 st.html(
@@ -508,12 +517,13 @@ def render_full(as_of: date) -> None:
 
             with st.expander("Government debt historical probabilities"):
                 debt_table = spread[["T10Y3M"]].copy()
+                debt_table["weighted_inversion"] = weighted_inversion
                 debt_table["debt_to_gdp"] = debt_monthly
                 debt_table["debt_change_1y"] = debt_change_monthly
                 debt_table = debt_table.dropna()
 
                 X_debt_history = sm.add_constant(
-                    debt_table[["T10Y3M", "debt_change_1y"]].astype(float),
+                    debt_table[["T10Y3M", "weighted_inversion", "debt_change_1y"]].astype(float),
                     has_constant="add"
                 )
                 debt_table["Estimated probability (%)"] = (
@@ -528,6 +538,7 @@ def render_full(as_of: date) -> None:
                 )
                 debt_table = debt_table.rename(
                     columns={
+                        "weighted_inversion": "Weighted Inversion Index",
                         "debt_to_gdp": "Debt/GDP (%)",
                         "debt_change_1y": "1-Year Debt/GDP Change (pp)"
                     }
