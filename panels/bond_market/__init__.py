@@ -219,21 +219,6 @@ def render_full(as_of: date) -> None:
     y_second = second_data["recession_12m"].astype(int)
     second_model = sm.Probit(y_second, X_second).fit(disp=False)
 
-    third_model = None
-    third_data = model_data.dropna(subset=["recession_12m", "credit_spread"])
-    third_correlation = third_data["credit_spread"].corr(third_data["recession_12m"])
-
-    if len(third_data) >= 60 and third_data["recession_12m"].nunique() == 2:
-        X_third = sm.add_constant(
-            third_data[["credit_spread"]].astype(float),
-            has_constant="add"
-        )
-        y_third = third_data["recession_12m"].astype(int)
-        try:
-            third_model = sm.Probit(y_third, X_third).fit(disp=False)
-        except Exception:
-            third_model = None
-
     # Time Machine
 
     cutoff = pd.Timestamp(as_of)
@@ -289,10 +274,9 @@ def render_full(as_of: date) -> None:
         model_data["recession_12m"].notna()
     ].copy()
 
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2 = st.tabs([
         "Baseline",
-        "Weighted inversion",
-        "Baa credit spreads"
+        "Weighted inversion"
     ])
 
     with tab1:
@@ -454,104 +438,6 @@ def render_full(as_of: date) -> None:
                     full_table, width="stretch", height=400,
                     key="bond_weighted_full_history"
                 )
-
-    with tab3:
-        if third_model is None:
-            st.warning(
-                "Not enough Baa credit spread data to fit this model. "
-                "Download BAA10Y.csv from FRED into the data folder. "
-                "The first two models are unaffected."
-            )
-        else:
-            selected_credit = credit_monthly.reindex(selected_data.index).iloc[0]
-
-            if pd.isna(selected_credit):
-                st.warning("No Baa credit spread data available for this Time Machine date.")
-            else:
-                third_input = pd.DataFrame(
-                    {"credit_spread": [selected_credit]},
-                    index=selected_data.index
-                )
-                third_input = sm.add_constant(third_input, has_constant="add")
-                third_probability = third_model.predict(third_input).iloc[0] * 100
-
-                st.html(
-                    f'<p style="color: #222222;">'
-                    f'Recession probability (12 months ahead): {third_probability:.1f}%'
-                    f'</p>'
-                )
-                st.html(
-                    f'<p style="color: #222222;">'
-                    f'Historical correlation: {third_correlation:.3f}'
-                    f'</p>'
-                )
-                st.html(
-                    f'<p style="color: #222222;">'
-                    f"Moody's Baa credit spread (BAA10Y): "
-                    f'{selected_credit:.2f} percentage points'
-                    f'</p>'
-                )
-                st.html(
-                    '<p style="color: #444444;">'
-                    'This standalone model uses only the Baa credit spread, averaged monthly, '
-                    'to estimate recession status exactly 12 months later.'
-                    '</p>'
-                )
-                st.html('<p style="color: #222222;">Regression coefficients:</p>')
-                st.write(third_model.params)
-
-            with st.expander("Baa credit spread historical probabilities"):
-                credit_table = credit_monthly.to_frame(name="credit_spread").dropna()
-                X_credit_history = sm.add_constant(
-                    credit_table[["credit_spread"]].astype(float),
-                    has_constant="add"
-                )
-                credit_table["Estimated probability (%)"] = (
-                    third_model.predict(X_credit_history) * 100
-                ).round(2)
-                credit_table["Actual recession 12 months later"] = (
-                    model_data["recession_12m"].astype("Int64")
-                )
-                credit_table["Actual recession 12 months later"] = (
-                    credit_table["Actual recession 12 months later"]
-                    .astype("string").fillna("N/A")
-                )
-                credit_table = credit_table.rename(columns={
-                    "credit_spread": "Baa Credit Spread (percentage points)"
-                }).sort_index(ascending=False)
-
-                selected_period = credit_table[
-                    credit_table.index <= cutoff
-                ].head(13).copy()
-
-                if selected_period.empty:
-                    st.info("No historical probabilities available for this date.")
-                else:
-                    selected_month = selected_period.index.max()
-                    st.html(
-                        f'<p style="color: #222222;">'
-                        f'Selected period: {selected_month:%b %Y} and the previous 12 months'
-                        f'</p>'
-                    )
-                    selected_period.index = selected_period.index.strftime("%b %Y")
-                    selected_period.index.name = "Month"
-                    st.dataframe(selected_period, width="stretch", height=500)
-
-                if st.checkbox("Show full historical series", key="baa_full_history"):
-                    full_table = credit_table.copy()
-                    first_month = full_table.index.min()
-                    last_month = full_table.index.max()
-                    st.html(
-                        f'<p style="color: #222222;">'
-                        f'Full historical data: {first_month:%b %Y} to {last_month:%b %Y}'
-                        f'</p>'
-                    )
-                    full_table.index = full_table.index.strftime("%b %Y")
-                    full_table.index.name = "Month"
-                    st.dataframe(
-                        full_table, width="stretch", height=400,
-                        key="bond_baa_full_history"
-                    )
 
     with st.expander("Explore data table"):
         display_data = model_data[model_data.index <= cutoff].tail(12).copy()
