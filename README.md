@@ -117,6 +117,11 @@ immediately inspect recessions caught, false alarms, precision and median warnin
 time. The Sources tab reports data coverage and lag, links every public series,
 and exports the full dated evidence table as CSV for independent checking.
 
+Panel 4 provides Irish GDP/MDD, unemployment, US-export exposure and US
+recession-probability views. Its probability input is linked to Panel 1's
+shared calculations, and its track record is evaluated against contractions
+in Modified Domestic Demand.
+
 ### Panel folders
 
 | Pane | Folder |
