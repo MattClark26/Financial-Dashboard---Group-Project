@@ -53,6 +53,8 @@ The dashboard will have one Streamlit entry point and one Python package per pan
 | `panels/financial_stress/` | Panel 3 · Credit spreads, VIX, the Fed stress index and S&P 500 drawdowns |
 | `panels/irish_lens/` | Panel 4 · Irish economic indicators and exposure to a US downturn |
 | `data/` | Cached CSVs for when an API is unavailable |
+| `preview-site/` | Exact static source used by the hosted GPT visual preview |
+| `scripts/check_setup.py` | Fresh-checkout dependency, data and file verifier |
 | `requirements.txt` | Python dependencies for running and deploying the dashboard |
 
 ### Working on a panel
@@ -75,14 +77,30 @@ dashboard can be deployed with the FRED API key stored in the host's secret mana
 
 ## Running the interface
 
-Use Python 3.11 or newer:
+### Reliable setup from a fresh clone
+
+Use Python 3.11 or newer and run every command from the repository root. The
+commands below install every required package, verify that committed data and
+interface files are present, and then launch the graded Streamlit application.
+The direct package versions in `requirements.txt` are the versions verified by
+the clean-checkout procedure below, which prevents installations from changing
+unexpectedly between group members.
 
 ```sh
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-streamlit run app.py
+git clone https://github.com/MattClark26/Financial-Dashboard---Group-Project.git
+cd Financial-Dashboard---Group-Project
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python scripts/check_setup.py
+python -m streamlit run app.py
 ```
+
+On Windows PowerShell, activate the environment with
+`.venv\Scripts\Activate.ps1`, then run the same `python -m pip`, setup-check and
+Streamlit commands. Using `python -m streamlit` ensures Streamlit runs from the
+same Python environment where the dependencies were installed.
 
 The dashboard runs from committed cache files without credentials. To refresh
 FRED and ALFRED data, open **Data connections & API keys** in the interface and
@@ -92,12 +110,15 @@ copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and replace
 the placeholder; the real file is ignored by Git. Yahoo Finance and the CSO
 PxStat API do not require keys.
 
-The app opens with a short project briefing and then enters a full-screen
-four-quadrant workspace. A shared time machine controls the historical cutoff
+The app opens with a short project briefing and then enters a full-screen signal
+matrix. The Bond Market and Labour Market panels form the top corners, Financial
+Stress and the Irish Lens form the bottom corners, and the compact 3D Signal Lab
+sits at the centre. Every area explains its purpose and provides a control to
+open the complete analysis. A shared time machine controls the historical cutoff
 for every panel, while the connected composite explicitly reports how many
 panels currently contribute to its reading.
 
-The shared **3D Signal Lab** adds a deeper layer above the four panels. Its
+The shared **3D Signal Lab** adds a deeper layer at the centre of the four panels. Its
 interactive surface shows the five Financial Stress channels together across
 time, with recession weeks coloured separately so broad stress peaks are easy
 to distinguish from isolated moves. The strategy view compares buy-and-hold,
@@ -108,6 +129,33 @@ drawdown and average exposure. A phase view then separates expansion,
 pre-recession, recession and recovery observations instead of hiding them in a
 single full-sample average. These outputs are historical diagnostics, not
 investment advice or forecasts.
+
+### Exact browser preview
+
+The visual preview shown at
+[recession-radar-preview-rohi.rohialuede.chatgpt.site](https://recession-radar-preview-rohi.rohialuede.chatgpt.site/)
+is also committed in `preview-site/`. Run its exact source locally with:
+
+```sh
+python -m http.server 4173 --directory preview-site
+```
+
+Open `http://localhost:4173` in a browser. This static version is the design
+reference. The Streamlit application remains the assessed, data-backed project
+and is the version to use for analytical testing.
+
+### Troubleshooting
+
+- If Python reports `ModuleNotFoundError`, activate `.venv` and rerun
+  `python -m pip install -r requirements.txt`.
+- If the `streamlit` command is not found, use
+  `python -m streamlit run app.py` from the repository root.
+- If a chart or cached series is missing, run `git pull origin main` followed by
+  `python scripts/check_setup.py`. The checker names the exact missing file.
+- If port 8501 is already in use, run
+  `python -m streamlit run app.py --server.port 8502`.
+- A FRED key is optional for the default offline experience. Add one through
+  **Data connections & API keys** only when a live refresh is required.
 
 All four panels are connected to the shared date and composite contract. Panel
 2 includes the Sahm rule, claims, payrolls, ALFRED revisions and historical
@@ -163,7 +211,8 @@ collisions. Once a panel is ready, connect it in `app.py` and pass its standard
 Run the complete automated suite before pushing:
 
 ```sh
-pytest -q
+python scripts/check_setup.py
+python -m pytest -q
 ```
 
 The Financial Stress tests separately cover public-source parsing and fallback,
