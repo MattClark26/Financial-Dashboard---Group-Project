@@ -131,7 +131,7 @@ collisions. Once a panel is ready, connect it in `app.py` and pass its standard
 | Financial Stress data, transformations, score and views | Rohi Aluede |
 | Bond Market analysis | Reserved for Luke O'Brien Peterson |
 | Labour Market analysis | Reserved for Tadhg Findon |
-| Irish Lens analysis | Reserved for Matthias Clark |
+| Irish Lens analysis | Matthias Clark |
 
 Run the complete automated suite before pushing:
 
