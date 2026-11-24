@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 
 import pandas as pd
-from fredapi import Fred
 
 # Optional: locally, .env supplies FRED_API_KEY; on Hugging Face it's a Space secret.
 try:
@@ -23,8 +22,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Anchored to this file, not the working directory, which differs per launcher.
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CACHE_DIR = PROJECT_ROOT / "data" / "panel2"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CACHE_DIR = PROJECT_ROOT / "data"
 
 # Days between an observation's date stamp and its release. Monthly series are
 # dated the 1st but published early next month; weekly claims 5 days after the
@@ -124,8 +123,10 @@ def load_vintages(series_id: str) -> pd.DataFrame:
 # --- Private helpers ---
 
 
-def _fred_client() -> Fred:
+def _fred_client():
     """A FRED client using FRED_API_KEY from the environment."""
+    from fredapi import Fred
+
     api_key = os.environ.get("FRED_API_KEY")
     if not api_key:
         raise RuntimeError("FRED_API_KEY environment variable is not set")

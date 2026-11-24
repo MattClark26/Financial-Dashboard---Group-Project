@@ -8,8 +8,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from panel2.claims import CLAIMS_THRESHOLD_PCT
-from panel2.sahm import SAHM_THRESHOLD
+from .claims import CLAIMS_THRESHOLD_PCT
+from .sahm import SAHM_THRESHOLD
 
 GAIN_COLOUR = "#2a78d6"
 LOSS_COLOUR = "#e34948"

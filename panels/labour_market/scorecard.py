@@ -7,7 +7,7 @@ panel can compare real-time vs revised data.
 
 import pandas as pd
 
-from panel2.sahm import sahm_triggers
+from .sahm import sahm_triggers
 
 # Months either side of a recession's start for a trigger to count. The same
 # window defines false alarms, so every trigger is exactly one or the other.

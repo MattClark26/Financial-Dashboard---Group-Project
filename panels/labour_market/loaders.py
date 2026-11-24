@@ -5,7 +5,7 @@ Streamlit re-runs the script on every widget change; caching stops it re-downloa
 
 import streamlit as st
 
-from panel2.data import load_series, load_vintages
+from .data import load_series, load_vintages
 
 # Claims update weekly at most. The TTL also stops a long-running Space serving stale data.
 CACHE_TTL = "12h"

@@ -7,15 +7,15 @@ The main app calls only render_panel(as_of). Sections run: verdict, drivers
 import pandas as pd
 import streamlit as st
 
-from panel2 import charts
-from panel2.claims import claims_indicator
-from panel2.data import RELEASE_LAG_DAYS, filter_as_of
-from panel2.loaders import cached_series, cached_vintages
-from panel2.payrolls import monthly_payroll_change
-from panel2.sahm import SAHM_DIFFERENCE_NOTE, sahm_rule
-from panel2.scorecard import AUGUST_2024_NOTE, recession_periods, recessions_known_at, track_record
-from panel2.signal import labour_reading, signal_from_reading
-from panel2.vintages import payroll_revisions, series_as_published
+from . import charts
+from .claims import claims_indicator
+from .data import RELEASE_LAG_DAYS, filter_as_of
+from .loaders import cached_series, cached_vintages
+from .payrolls import monthly_payroll_change
+from .sahm import SAHM_DIFFERENCE_NOTE, sahm_rule
+from .scorecard import AUGUST_2024_NOTE, recession_periods, recessions_known_at, track_record
+from .signal import labour_reading, signal_from_reading
+from .vintages import payroll_revisions, series_as_published
 
 SERIES_NEEDED = ["UNRATE", "SAHMREALTIME", "ICSA", "PAYEMS", "USREC"]
 

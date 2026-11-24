@@ -16,9 +16,9 @@ import logging
 import numpy as np
 import pandas as pd
 
-from panel2.claims import claims_indicator
-from panel2.data import RELEASE_LAG_DAYS, filter_as_of
-from panel2.sahm import SAHM_THRESHOLD, sahm_rule
+from .claims import claims_indicator
+from .data import RELEASE_LAG_DAYS, filter_as_of
+from .sahm import SAHM_THRESHOLD, sahm_rule
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ UNAVAILABLE_SIGNAL = {
 def get_signal(as_of) -> dict:
     """Panel 2's signal at as_of. Never raises: one panel must not break the thermometer."""
     # Imported here so the pure functions and their tests don't need Streamlit.
-    from panel2.loaders import cached_series
+    from .loaders import cached_series
 
     try:
         unemployment = cached_series("UNRATE")
