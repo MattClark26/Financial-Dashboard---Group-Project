@@ -642,7 +642,7 @@ def render(as_of: date) -> dict:
 def render_detail(as_of: date) -> None:
     """Render the full Irish Lens individual-panel view."""
     selected_date = pd.Timestamp(as_of)
-
+    panel_signal = load_irish_lens_signal(selected_date)
     actions = st.columns([1, 1, 4], vertical_alignment="center")
 
     with actions[0]:
@@ -651,7 +651,7 @@ def render_detail(as_of: date) -> None:
             st.rerun()
 
     st.html(
-        """
+        f"""
         <section class="rr-detail-hero">
           <div>
             <p class="rr-kicker">
@@ -664,7 +664,8 @@ def render_detail(as_of: date) -> None:
             </p>
           </div>
           <div class="rr-detail-score">
-            <strong>0</strong><span>/100 · PENDING</span>
+            <strong>{panel_signal["score"]:.0f}</strong>
+            <span>/100 · {panel_signal["status"]}</span>
           </div>
         </section>
         """
