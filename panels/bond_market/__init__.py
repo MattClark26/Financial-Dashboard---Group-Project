@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -169,6 +168,39 @@ def render_full(as_of: date) -> None:
 
     model_data["weighted_inversion"] = weighted_inversion
 
+    debt = pd.Series(dtype="float64")
+    debt_url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=GFDEGDQ188S"
+
+    try:
+        debt_frame = pd.read_csv(
+            debt_url, index_col=0, parse_dates=True, na_values="."
+        )
+        debt = pd.to_numeric(debt_frame["GFDEGDQ188S"], errors="coerce").dropna()
+    except Exception:
+        debt_backup = DATA_DIR / "GFDEGDQ188S.csv"
+        if debt_backup.exists():
+            debt_frame = pd.read_csv(
+                debt_backup, index_col=0, parse_dates=True, na_values="."
+            )
+            debt = pd.to_numeric(debt_frame["GFDEGDQ188S"], errors="coerce").dropna()
+
+    debt_monthly = pd.Series(index=spread.index, dtype="float64")
+    debt_change_monthly = pd.Series(index=spread.index, dtype="float64")
+
+    if not debt.empty:
+        debt = debt.sort_index()
+        debt_change = debt.diff(4)
+        available_dates = debt.index + pd.offsets.QuarterEnd(0) + pd.offsets.MonthEnd(3)
+        debt.index = available_dates
+        debt_change.index = available_dates
+        debt = debt[~debt.index.duplicated(keep="last")]
+        debt_change = debt_change[~debt_change.index.duplicated(keep="last")]
+        debt_monthly = debt.reindex(spread.index, method="ffill")
+        debt_change_monthly = debt_change.reindex(spread.index, method="ffill")
+
+    model_data["debt_to_gdp"] = debt_monthly
+    model_data["debt_change_1y"] = debt_change_monthly
+
     # Fit regression models
 
     regression_data = model_data.dropna(subset=["recession_12m"])
@@ -194,6 +226,20 @@ def render_full(as_of: date) -> None:
     y_second = second_data["recession_12m"].astype(int)
     second_model = sm.Probit(y_second, X_second).fit(disp=False)
 
+    third_model = None
+    third_data = model_data.dropna(subset=["recession_12m", "debt_change_1y"])
+
+    if len(third_data) >= 60 and third_data["recession_12m"].nunique() == 2:
+        X_third = sm.add_constant(
+            third_data[["T10Y3M", "debt_change_1y"]].astype(float),
+            has_constant="add"
+        )
+        y_third = third_data["recession_12m"].astype(int)
+        try:
+            third_model = sm.Probit(y_third, X_third).fit(disp=False)
+        except Exception:
+            third_model = None
+
     # Time Machine
 
     cutoff = pd.Timestamp(as_of)
@@ -214,8 +260,21 @@ def render_full(as_of: date) -> None:
 
     st.html("""
     <style>
-    [data-testid="stExpander"] summary p {
+    [data-testid="stExpander"] summary {
+        background-color: #f2eee6 !important;
+    }
+
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary span {
         color: #222222 !important;
+        opacity: 1 !important;
+    }
+
+    [data-testid="stTabs"] button[aria-selected="false"],
+    [data-testid="stTabs"] button[aria-selected="false"] p,
+    [data-testid="stTabs"] button[aria-selected="false"] span {
+        color: #333333 !important;
+        opacity: 1 !important;
     }
 
     div[data-testid="stTabs"] button[data-baseweb="tab"],
@@ -349,31 +408,24 @@ def render_full(as_of: date) -> None:
             st.write(second_model.params)
 
         with st.expander("Weighted inversion historical probabilities"):
-
             weighted_table = spread[["T10Y3M"]].copy()
             weighted_table["weighted_inversion"] = weighted_inversion
-
             weighted_table = weighted_table.dropna()
 
             X_weighted = sm.add_constant(
                 weighted_table[["T10Y3M", "weighted_inversion"]].astype(float),
                 has_constant="add"
             )
-
             weighted_table["Estimated probability (%)"] = (
                 second_model.predict(X_weighted) * 100
             ).round(2)
-
             weighted_table["Actual recession 12 months later"] = (
                 model_data["recession_12m"].astype("Int64")
             )
-
             weighted_table["Actual recession 12 months later"] = (
                 weighted_table["Actual recession 12 months later"]
-                .astype("string")
-                .fillna("N/A")
+                .astype("string").fillna("N/A")
             )
-
             weighted_table = weighted_table.sort_index(ascending=False)
 
             selected_period = weighted_table[
@@ -384,52 +436,147 @@ def render_full(as_of: date) -> None:
                 st.info("No historical probabilities available for this date.")
             else:
                 selected_month = selected_period.index.max()
-
                 st.html(
                     f'<p style="color: #222222;">'
                     f'Selected period: {selected_month:%b %Y} and the previous 12 months'
                     f'</p>'
                 )
-
                 selected_period.index = selected_period.index.strftime("%b %Y")
                 selected_period.index.name = "Month"
-
                 st.dataframe(selected_period, width="stretch", height=500)
 
-            if st.checkbox(
-                "Show full historical series",
-                key="weighted_full_history"
-            ):
+            if st.checkbox("Show full historical series", key="weighted_full_history"):
                 full_table = weighted_table.copy()
-
                 first_month = full_table.index.min()
                 last_month = full_table.index.max()
-
                 st.html(
                     f'<p style="color: #222222;">'
                     f'Full historical data: {first_month:%b %Y} to {last_month:%b %Y}'
                     f'</p>'
                 )
-
                 full_table.index = full_table.index.strftime("%b %Y")
                 full_table.index.name = "Month"
-
                 st.dataframe(
-                    full_table,
-                    width="stretch",
-                    height=400,
+                    full_table, width="stretch", height=400,
                     key="bond_weighted_full_history"
                 )
 
     with tab3:
-        st.html(
-            '<p style="color: #222222;">'
-            'Government debt model coming later.'
-            '</p>'
-        )
+        if third_model is None:
+            st.warning(
+                "Government debt data or sufficient recession history is unavailable. "
+                "Download GFDEGDQ188S.csv from FRED into the data folder if needed."
+            )
+        else:
+            selected_debt = debt_monthly.reindex(selected_data.index).iloc[0]
+            selected_change = debt_change_monthly.reindex(selected_data.index).iloc[0]
+
+            if pd.isna(selected_change):
+                st.warning("No available annual government debt change for this date.")
+            else:
+                third_input = selected_data[["T10Y3M"]].copy()
+                third_input["debt_change_1y"] = selected_change
+                third_input = sm.add_constant(
+                    third_input.astype(float), has_constant="add"
+                )
+                third_probability = third_model.predict(third_input).iloc[0] * 100
+
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f'Recession probability (12 months ahead): {third_probability:.1f}%'
+                    f'</p>'
+                )
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f'Debt / GDP change over 4 quarters: {selected_change:+.1f} percentage points'
+                    f'</p>'
+                )
+                st.html(
+                    f'<p style="color: #222222;">'
+                    f'Total federal debt / GDP: {selected_debt:.1f}%'
+                    f'</p>'
+                )
+                st.html(
+                    '<p style="color: #444444; margin: 0 0 12px 0;">'
+                    'Debt changes compare figures four quarters apart; '
+                    'each figure is treated as available three months '
+                    'after its quarter ends.'
+                    '</p>'
+                )
+                st.html('<p style="color: #222222;">Regression coefficients:</p>')
+                st.write(third_model.params)
+
+            with st.expander("Government debt historical probabilities"):
+                debt_table = spread[["T10Y3M"]].copy()
+                debt_table["debt_to_gdp"] = debt_monthly
+                debt_table["debt_change_1y"] = debt_change_monthly
+                debt_table = debt_table.dropna()
+
+                X_debt_history = sm.add_constant(
+                    debt_table[["T10Y3M", "debt_change_1y"]].astype(float),
+                    has_constant="add"
+                )
+                debt_table["Estimated probability (%)"] = (
+                    third_model.predict(X_debt_history) * 100
+                ).round(2)
+                debt_table["Actual recession 12 months later"] = (
+                    model_data["recession_12m"].astype("Int64")
+                )
+                debt_table["Actual recession 12 months later"] = (
+                    debt_table["Actual recession 12 months later"]
+                    .astype("string").fillna("N/A")
+                )
+                debt_table = debt_table.rename(
+                    columns={
+                        "debt_to_gdp": "Debt/GDP (%)",
+                        "debt_change_1y": "1-Year Debt/GDP Change (pp)"
+                    }
+                ).sort_index(ascending=False)
+
+                selected_period = debt_table[
+                    debt_table.index <= cutoff
+                ].head(13).copy()
+
+                if selected_period.empty:
+                    st.info("No historical probabilities available for this date.")
+                else:
+                    selected_month = selected_period.index.max()
+                    st.html(
+                        f'<p style="color: #222222;">'
+                        f'Selected period: {selected_month:%b %Y} and the previous 12 months'
+                        f'</p>'
+                    )
+                    selected_period.index = selected_period.index.strftime("%b %Y")
+                    selected_period.index.name = "Month"
+                    st.dataframe(selected_period, width="stretch", height=500)
+
+                if st.checkbox(
+                    "Show full historical series", key="debt_full_history"
+                ):
+                    full_table = debt_table.copy()
+                    first_month = full_table.index.min()
+                    last_month = full_table.index.max()
+                    st.html(
+                        f'<p style="color: #222222;">'
+                        f'Full historical data: {first_month:%b %Y} to {last_month:%b %Y}'
+                        f'</p>'
+                    )
+                    full_table.index = full_table.index.strftime("%b %Y")
+                    full_table.index.name = "Month"
+                    st.dataframe(
+                        full_table, width="stretch", height=400,
+                        key="bond_debt_full_history"
+                    )
 
     with st.expander("Explore data table"):
-        st.dataframe(
-            model_data[model_data.index <= cutoff].tail(12),
-            width="stretch"
-        )
+        display_data = model_data[model_data.index <= cutoff].tail(12).copy()
+        display_data = display_data.rename(columns={
+            "T10Y3M": "10Y–3M Treasury Spread",
+            "USREC": "US Recession",
+            "recession_12m": "Recession 12 Months Later",
+            "weighted_inversion": "Weighted Inversion Index",
+            "debt_to_gdp": "Government Debt / GDP (%)",
+            "debt_change_1y": "1-Year Debt/GDP Change (pp)"
+        })
+        display_data.index.name = "Observation Date"
+        st.dataframe(display_data, width="stretch")
