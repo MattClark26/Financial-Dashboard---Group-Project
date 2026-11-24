@@ -486,6 +486,113 @@ def load_irish_lens_signal(
         gdp_index=gdp_index,
         mdd_index=mdd_index,
     )
+
+def _mdd_recession_starts(mdd: pd.Series) -> pd.DatetimeIndex:
+    """Return quarter-end dates confirming two consecutive MDD declines."""
+    declines = mdd.sort_index().pct_change().lt(0)
+    two_consecutive_declines = declines & declines.shift(
+        1,
+        fill_value=False,
+    )
+    episode_starts = two_consecutive_declines & ~two_consecutive_declines.shift(
+        1,
+        fill_value=False,
+    )
+    return pd.DatetimeIndex(episode_starts.index[episode_starts])
+
+
+@st.cache_data(ttl=3600, max_entries=100)
+def _compute_irish_track_record(
+    as_of: pd.Timestamp,
+) -> dict[str, int | float | None]:
+    """Backtest warnings against two-quarter MDD contractions."""
+    mdd = _slice_to_date(
+        _to_time_series(_read_cached_frame(MDD_CACHE)),
+        as_of,
+    )
+    exports = _load_export_exposure(as_of)
+
+    empty_result = {
+        "caught": None,
+        "false_alarms": None,
+        "avg_lead_months": None,
+    }
+    if mdd.empty or exports.empty:
+        return empty_result
+
+    valid_export_dates = exports.loc[
+        exports["12-month average (%)"].notna(),
+        "Date",
+    ]
+    if valid_export_dates.empty:
+        return empty_result
+
+    first_score_date = max(
+        mdd.index.min(),
+        pd.Timestamp(valid_export_dates.min()),
+    )
+    last_outcome_date = mdd.index.max()
+    score_dates = pd.date_range(
+        start=first_score_date,
+        end=last_outcome_date,
+        freq=pd.offsets.MonthEnd(),
+    )
+    if score_dates.empty:
+        return empty_result
+
+    scores = pd.Series(
+        [
+            load_irish_lens_signal(score_date)["score"]
+            for score_date in score_dates
+        ],
+        index=score_dates,
+        dtype="float64",
+    )
+
+    warning = scores >= IRISH_WARNING_SCORE
+    warning_starts = scores.index[
+        warning & ~warning.shift(1, fill_value=False)
+    ]
+
+    recession_starts = _mdd_recession_starts(mdd)
+    horizon = pd.DateOffset(months=BACKTEST_HORIZON_MONTHS)
+
+    lead_months = []
+    for recession_start in recession_starts:
+        window_start = recession_start - horizon
+        if window_start < scores.index.min():
+            continue
+
+        prior_warnings = warning_starts[
+            (warning_starts >= window_start)
+            & (warning_starts < recession_start)
+        ]
+        if not prior_warnings.empty:
+            days_to_recession = (
+                recession_start - prior_warnings[0]
+            ).days
+            lead_months.append(days_to_recession / 30.4375)
+
+    complete_warnings = warning_starts[
+        warning_starts + horizon <= last_outcome_date
+    ]
+    false_alarms = sum(
+        not (
+            (recession_starts > warning_start)
+            & (recession_starts <= warning_start + horizon)
+        ).any()
+        for warning_start in complete_warnings
+    )
+
+    return {
+        "caught": len(lead_months),
+        "false_alarms": int(false_alarms),
+        "avg_lead_months": (
+            round(sum(lead_months) / len(lead_months), 1)
+            if lead_months
+            else None
+        ),
+    }
     
 def render(as_of: date) -> dict:
     """Render the compact Irish Lens quadrant."""
