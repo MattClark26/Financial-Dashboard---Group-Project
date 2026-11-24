@@ -26,11 +26,7 @@ def render_panel_header(
 ) -> None:
     """Render consistent panel identity and ownership."""
     status_class = status.lower() if status in {"CALM", "WATCH", "ALERT"} else ""
-    owner = (
-        f"<b>{escape(identity.owner.upper())}</b>"
-        if identity.key in {"stress", "irish"}
-        else ""
-    )
+    owner = f"<b>{escape(identity.owner.upper())}</b>"
     st.html(
         f"""
         <div class="rr-panel-topline">

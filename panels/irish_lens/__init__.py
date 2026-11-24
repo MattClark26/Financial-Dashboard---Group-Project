@@ -774,6 +774,20 @@ def render_detail(as_of: date) -> None:
         </section>
         """
     )
+    with st.expander("How the Irish transmission channels fit together", expanded=True):
+        st.write(
+            "Headline Irish GDP can be dominated by multinational balance-sheet and "
+            "intellectual-property activity, so Modified Domestic Demand is used as a "
+            "closer view of spending inside the domestic economy. A widening GDP/MDD "
+            "gap is therefore context, not automatically a recession signal."
+        )
+        st.write(
+            "The Irish Sahm indicator asks whether unemployment is rising quickly; US "
+            "export share measures trade exposure; and the imported US recession "
+            "probability represents the external shock. The panel combines those "
+            "channels because Ireland can be vulnerable to a US downturn even while "
+            "headline GDP remains elevated."
+        )
     gdp_tab, sahm_tab, exports_tab, probability_tab, method, sources = st.tabs(
         [
             "GDP & MDD",

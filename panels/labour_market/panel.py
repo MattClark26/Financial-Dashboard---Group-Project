@@ -33,12 +33,26 @@ STATUS_LABELS = {
 def render_panel(as_of) -> None:
     """Draw the whole of Panel 2 for the time machine date `as_of`."""
     as_of = pd.Timestamp(as_of)
+    st.caption("PANEL 02 / LABOUR MARKET / TADHG FINDON")
     st.header("Labour market: is the warning being confirmed?")
     st.caption(
         "Recessions are ultimately about jobs. Labour data move later than "
         "markets, but when they turn, a downturn usually follows. This panel "
         "checks whether the job market confirms the bond market's warning."
     )
+    with st.expander("Why these labour indicators belong together", expanded=True):
+        st.write(
+            "The Sahm rule measures how far the three-month unemployment average has "
+            "risen above its lowest three-month average during the previous year. It "
+            "is deliberately a confirmation signal: it usually reacts after financial "
+            "markets, but closer to the point where households feel the downturn."
+        )
+        st.write(
+            "Initial claims move weekly and can warn earlier, while payrolls describe "
+            "the breadth of job creation. ALFRED vintages show what payroll growth "
+            "looked like when it was first released, preventing revised data from "
+            "making historical decisions appear easier than they really were."
+        )
 
     data = _load_data()
     if data is None:

@@ -78,7 +78,22 @@ def render_full(as_of: date) -> None:
 
     # Yield curve chart
 
+    st.caption("PANEL 01 / BOND MARKET / LUKE O'BRIEN PETERSON")
     st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
+    with st.expander("How to read the bond-market evidence", expanded=True):
+        st.write(
+            "The yield curve compares long-term Treasury yields with shorter-term "
+            "rates. An inversion means short rates exceed long rates, which often "
+            "appears before recessions as markets anticipate weaker growth and future "
+            "rate cuts. It is a warning about the next 6–18 months, not proof that a "
+            "recession has already begun."
+        )
+        st.write(
+            "The probability models convert the depth and persistence of inversion "
+            "into an estimated twelve-month recession risk. Grey bands show known US "
+            "recessions; the model should be judged by lead time and false alarms, not "
+            "by whether one monthly probability looks dramatic."
+        )
     st.html('<p style="color: #444444; margin: 0;">Choose yield spread</p>')
 
     series = st.selectbox(
