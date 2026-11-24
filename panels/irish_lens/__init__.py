@@ -949,10 +949,6 @@ def render_detail(as_of: date) -> None:
             The Irish Sahm indicator compares the three-month unemployment
             average with its twelve-month minimum. The 0.50-point threshold
             is shown as a recession warning.
-            """
-        )
-        st.write(
-            """
             Current weights are 35% US recession probability, 25% Irish Sahm,
             25% US export share, and 15% GDP/MDD divergence. Component scores
             are bounded from 0 to 100; missing components are omitted and the
@@ -960,6 +956,8 @@ def render_detail(as_of: date) -> None:
             below 34, WATCH from 34 through 66, and ALERT at 67 or above.
             """
         )
+
+
 
     with sources:
         st.html(
