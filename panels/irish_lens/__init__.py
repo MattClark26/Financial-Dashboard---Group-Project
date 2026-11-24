@@ -372,22 +372,15 @@ def _bound(value: float) -> float:
 def score_irish_lens(
     sahm_indicator: float | None,
     export_share: float | None,
-    recession_probability: float | None,
     gdp_index: float | None,
     mdd_index: float | None,
 ) -> dict:
     components = {}
     weights = {
-        "us_recession_probability": 0.35,
         "irish_sahm": 0.25,
         "us_export_share": 0.25,
         "gdp_mdd_divergence": 0.15,
     }
-
-    if recession_probability is not None:
-        components["us_recession_probability"] = _bound(
-            recession_probability
-        )
 
     if sahm_indicator is not None:
         components["irish_sahm"] = _bound(
@@ -448,7 +441,6 @@ def load_irish_lens_signal(
         selected_date,
     )
     export_exposure = _load_export_exposure(selected_date)
-    recession_probability = load_recession_probability(selected_date)
 
     sahm_indicator = None
     if not unemployment.empty:
@@ -465,10 +457,6 @@ def load_irish_lens_signal(
         if not valid_average.empty:
             export_share = float(valid_average.iloc[-1])
 
-    us_probability = None
-    if not recession_probability.empty:
-        us_probability = float(recession_probability.iloc[-1])
-
     gdp_index = None
     mdd_index = None
     if not gdp.empty and not mdd.empty:
@@ -482,7 +470,6 @@ def load_irish_lens_signal(
     return score_irish_lens(
         sahm_indicator=sahm_indicator,
         export_share=export_share,
-        recession_probability=us_probability,
         gdp_index=gdp_index,
         mdd_index=mdd_index,
     )
@@ -611,7 +598,6 @@ def render(as_of: date) -> dict:
         selected_date,
     )
     export_exposure = _load_export_exposure(selected_date)
-    recession_probability = load_recession_probability(selected_date)
 
     sahm_indicator = None
     if not unemployment.empty:
@@ -629,12 +615,6 @@ def render(as_of: date) -> dict:
         if not rolling_average.empty:
             latest_export_share = float(rolling_average.iloc[-1])
 
-    latest_recession_probability = None
-    if not recession_probability.empty:
-        latest_recession_probability = float(
-            recession_probability.iloc[-1]
-        )
-
     gdp_index = None
     mdd_index = None
     if not gdp.empty and not mdd.empty:
@@ -648,7 +628,6 @@ def render(as_of: date) -> dict:
     panel_signal = score_irish_lens(
         sahm_indicator=sahm_indicator,
         export_share=latest_export_share,
-        recession_probability=latest_recession_probability,
         gdp_index=gdp_index,
         mdd_index=mdd_index,
     )
@@ -963,11 +942,13 @@ def render_detail(as_of: date) -> None:
             The Irish Sahm indicator compares the three-month unemployment
             average with its twelve-month minimum. The 0.50-point threshold
             is shown as a recession warning.
-            Current weights are 35% US recession probability, 25% Irish Sahm,
-            25% US export share, and 15% GDP/MDD divergence. Component scores
-            are bounded from 0 to 100; missing components are omitted and the
-            remaining weights are renormalized. The status bands are CALM
-            below 34, WATCH from 34 through 66, and ALERT at 67 or above.
+            
+            Current weights are 25% Irish Sahm, 25% US export share, and 15%
+            GDP/MDD divergence, which normalize to approximately 38.5%, 38.5%,
+            and 23.1%. . Component scores are bounded from 0 to 100; missing 
+            components are omitted and the remaining weights are renormalized. 
+            The status bands are CALM below 34, WATCH from 34 through 66, and 
+            ALERT at 67 or above.
             """
         )
 
