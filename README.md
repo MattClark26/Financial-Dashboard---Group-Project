@@ -97,6 +97,18 @@ four-quadrant workspace. A shared time machine controls the historical cutoff
 for every panel, while the connected composite explicitly reports how many
 panels currently contribute to its reading.
 
+The shared **3D Signal Lab** adds a deeper layer above the four panels. Its
+interactive surface shows the five Financial Stress channels together across
+time, with recession weeks coloured separately so broad stress peaks are easy
+to distinguish from isolated moves. The strategy view compares buy-and-hold,
+a continuously stress-scaled exposure and a CALM/WATCH/ALERT exposure rule.
+All strategy decisions use the previous week's signal to avoid look-ahead bias;
+the table reports annual return, volatility, a 0%-cash Sharpe ratio, maximum
+drawdown and average exposure. A phase view then separates expansion,
+pre-recession, recession and recovery observations instead of hiding them in a
+single full-sample average. These outputs are historical diagnostics, not
+investment advice or forecasts.
+
 All four panels are connected to the shared date and composite contract. Panel
 2 includes the Sahm rule, claims, payrolls, ALFRED revisions and historical
 track record. Panel 4 includes GDP/MDD, Irish Sahm, US export exposure and the
@@ -142,6 +154,7 @@ collisions. Once a panel is ready, connect it in `app.py` and pass its standard
 | Shared or panel area | Current contribution |
 | --- | --- |
 | Intro, cursor, time machine and four-panel layout | Rohi Aluede |
+| Shared 3D Signal Lab, strategy diagnostics and responsive containment | Rohi Aluede |
 | Financial Stress data, transformations, score and views | Rohi Aluede |
 | Bond Market analysis | Luke O'Brien Peterson |
 | Labour Market analysis | Tadhg Findon |
