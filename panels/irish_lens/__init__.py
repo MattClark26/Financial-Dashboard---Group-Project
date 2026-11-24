@@ -526,7 +526,7 @@ def render_detail(as_of: date) -> None:
         selected_date,
     )
     export_exposure = _load_export_exposure(selected_date)
-    probability = load_recession_probability(selected_date)
+    recession_probability = load_recession_probability(selected_date)
 
     with gdp_tab:
         if gdp.empty or mdd.empty:
