@@ -110,22 +110,24 @@ def _terrain_figure(
     labels = ["IG OAS", "HY OAS", "VIX", "STLFSI", "Drawdown"]
     keys = ["ig_oas", "hy_oas", "vix", "stlfsi", "drawdown"]
     history = view.history[keys].dropna(how="all").tail(260)
-    recession = (
-        view.recession_indicator.reindex(history.index, method="ffill")
-        .fillna(0)
-        .ge(0.5)
-        .astype(int)
-    )
-    colours = np.tile(recession.to_numpy(), (len(keys), 1))
+    colours = history[keys].T.to_numpy()
     figure = go.Figure(
         go.Surface(
             x=history.index,
             y=labels,
             z=history[keys].T.to_numpy(),
             surfacecolor=colours,
-            colorscale=[[0, "#f5bd3e"], [0.49, "#f5bd3e"], [0.5, "#d75f47"], [1, "#d75f47"]],
+            colorscale=[
+                [0.00, "#3c7555"],
+                [0.33, "#3c7555"],
+                [0.34, "#f5bd3e"],
+                [0.54, "#f5bd3e"],
+                [0.55, "#d75f47"],
+                [1.00, "#d75f47"],
+            ],
             cmin=0,
-            cmax=1,
+            cmax=100,
+            opacity=0.72,
             showscale=False,
             contours={"z": {"show": True, "usecolormap": False, "color": "#15130f", "width": 1}},
             hovertemplate="%{x|%d %b %Y}<br>%{y}<br>Stress %{z:.1f}/100<extra></extra>",
@@ -172,7 +174,8 @@ def render_signal_lab_preview(
     st.write(
         "The surface puts credit spreads, VIX, STLFSI and equity drawdown on "
         "one 0 to 100 scale. A broad ridge across several rows is more meaningful "
-        "than one isolated spike. Red sections overlap a labelled US recession."
+        "than one isolated spike. Red begins at 55 as an early visual warning; "
+        "the formal ALERT classification still begins at 67."
     )
     st.plotly_chart(
         _terrain_figure(view, height=460),
@@ -294,10 +297,10 @@ def render_signal_lab(view: FinancialStressView) -> None:
         comparatively calm. The score is derived from causal 156-week z-scores, so the
         current week never enters its own baseline.
 
-        **Colour supplies economic context.** Yellow sections are outside an
-        NBER-labelled US recession. Red sections fall inside a labelled recession. A red
-        peak does not prove causation; it shows that market stress and contraction
-        overlapped in the historical sample.
+        **Colour shows warning intensity.** Green is comparatively calm, yellow is
+        elevated, and red starts at 55/100 so emerging pressure is visible before the
+        formal 67/100 ALERT threshold. Colour is an early visual cue, not a recession
+        prediction by itself.
 
         **Shape shows breadth.** One tall row is an isolated warning. A ridge across
         several rows means credit, volatility and market losses are agreeing, which is a
