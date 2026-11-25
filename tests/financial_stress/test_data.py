@@ -42,6 +42,40 @@ def test_fetch_fred_series_parses_missing_values_and_cutoff(
     assert result.to_dict() == {pd.Timestamp("2020-01-01"): 1.10}
 
 
+def test_fetch_fred_series_uses_configured_api_key(
+    corporate_spread_spec: SeriesSpec,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, str] = {}
+
+    class FakeFred:
+        def __init__(self, *, api_key: str) -> None:
+            calls["api_key"] = api_key
+
+        def get_series(self, identifier: str, *, observation_end: str) -> pd.Series:
+            calls["identifier"] = identifier
+            calls["observation_end"] = observation_end
+            return pd.Series(
+                [1.10, 1.25],
+                index=pd.to_datetime(["2020-01-01", "2020-01-03"]),
+            )
+
+    monkeypatch.setenv("FRED_API_KEY", "session-secret")
+    monkeypatch.setattr("fredapi.Fred", FakeFred)
+
+    result = fetch_fred_series(
+        corporate_spread_spec,
+        pd.Timestamp("2020-01-02"),
+    )
+
+    assert calls == {
+        "api_key": "session-secret",
+        "identifier": "BAMLC0A0CM",
+        "observation_end": "2020-01-02",
+    }
+    assert result.to_dict() == {pd.Timestamp("2020-01-01"): 1.10}
+
+
 def test_fetch_yahoo_series_handles_multi_index_columns() -> None:
     spec = SERIES_SPECS["sp500"]
     index = pd.to_datetime(["2020-01-02", "2020-01-03", "2020-01-06"])

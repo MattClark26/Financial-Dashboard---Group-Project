@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from io import BytesIO
+import os
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -114,12 +115,34 @@ def fetch_fred_series(
     if spec.provider != "fred":
         raise ValueError(f"{spec.key} is not a FRED series.")
 
+    api_key = os.environ.get("FRED_API_KEY", "").strip()
+    api_failure: Exception | None = None
+    if api_key and http_get is _download_bytes:
+        try:
+            from fredapi import Fred
+
+            client = Fred(api_key=api_key)
+            api_values = client.get_series(
+                spec.identifier,
+                observation_end=pd.Timestamp(as_of).date().isoformat(),
+            )
+            api_values = pd.to_numeric(api_values, errors="coerce").dropna()
+            api_values.name = spec.key
+            api_values = _cut_off(api_values, pd.Timestamp(as_of))
+            if not api_values.empty:
+                return api_values
+        except Exception as error:
+            api_failure = error
+
     url = FRED_CSV_URL.format(identifier=spec.identifier)
     try:
         payload = http_get(url, timeout)
         frame = pd.read_csv(BytesIO(payload), na_values=".")
     except Exception as error:
-        raise DataAccessError(f"FRED download failed for {spec.identifier}: {error}") from error
+        api_detail = f"; keyed API failed: {api_failure}" if api_failure else ""
+        raise DataAccessError(
+            f"FRED download failed for {spec.identifier}: {error}{api_detail}"
+        ) from error
 
     if frame.shape[1] < 2:
         raise DataAccessError(f"FRED returned no value column for {spec.identifier}.")

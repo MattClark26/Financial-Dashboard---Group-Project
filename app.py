@@ -24,6 +24,20 @@ def open_signal_lab() -> None:
     st.session_state["active_panel"] = "signal_lab"
 
 
+@st.cache_resource(ttl=900, show_spinner="Refreshing financial-market data...")
+def load_workspace_stress_view(
+    as_of: date,
+    prefer_live: bool,
+    connection_revision: int,
+):
+    """Reuse one stress-data refresh across panel navigation for fifteen minutes."""
+    del connection_revision  # Included only to invalidate the cache after key changes.
+    return financial_stress.load_financial_stress_view(
+        as_of,
+        prefer_live=prefer_live,
+    )
+
+
 def render_workspace() -> None:
     activate_session_credentials()
     default_date = st.session_state.get("as_of", date.today())
@@ -47,7 +61,11 @@ def render_workspace() -> None:
         labour_market.render_detail(default_date)
         return
 
-    stress_view = financial_stress.load_financial_stress_view(default_date)
+    stress_view = load_workspace_stress_view(
+        default_date,
+        prefer_live=bool(st.session_state.get("financial_stress_live_enabled", False)),
+        connection_revision=int(st.session_state.get("data_connection_revision", 0)),
+    )
 
     if active_panel == "signal_lab":
         scroll_to_top()

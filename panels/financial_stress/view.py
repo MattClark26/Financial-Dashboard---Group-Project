@@ -16,6 +16,13 @@ from .presentation import FinancialStressView, load_financial_stress_view
 from .scoring import COMPONENT_COLUMNS, COMPONENT_WEIGHTS, StressSignal, score_history
 
 
+def _enable_live_data() -> None:
+    st.session_state["financial_stress_live_enabled"] = True
+    st.session_state["data_connection_revision"] = (
+        int(st.session_state.get("data_connection_revision", 0)) + 1
+    )
+
+
 def _history_figure(view: FinancialStressView, weeks: int = 104) -> go.Figure:
     history = view.history["score"].dropna().tail(weeks)
     figure = go.Figure()
@@ -203,8 +210,12 @@ def _backtest_figure(view: FinancialStressView, result: BacktestResult) -> go.Fi
 
 def render_detail(as_of: date, *, view: FinancialStressView) -> None:
     """Render Rohi Aluede's full-page analysis with method and provenance."""
-    refresh = st.button("Load live public data", key="load_live_data")
-    state = load_financial_stress_view(pd.Timestamp(as_of), prefer_live=True) if refresh else view
+    st.button(
+        "Use live public data",
+        key="load_live_data",
+        on_click=_enable_live_data,
+    )
+    state = view
     signal = state.signal
 
     st.html(

@@ -26,11 +26,19 @@ def _save_fred_key() -> None:
     key = str(st.session_state.get("fred_api_key_input", "")).strip()
     if key:
         st.session_state["fred_api_key"] = key
+        st.session_state["financial_stress_live_enabled"] = True
+        st.session_state["data_connection_revision"] = (
+            int(st.session_state.get("data_connection_revision", 0)) + 1
+        )
         os.environ["FRED_API_KEY"] = key
 
 
 def _clear_fred_key() -> None:
     st.session_state.pop("fred_api_key", None)
+    st.session_state["financial_stress_live_enabled"] = False
+    st.session_state["data_connection_revision"] = (
+        int(st.session_state.get("data_connection_revision", 0)) + 1
+    )
     os.environ.pop("FRED_API_KEY", None)
 
 
@@ -50,8 +58,9 @@ def render_connections() -> None:
         with left:
             st.markdown("### FRED + ALFRED")
             st.write(
-                "Used by the Labour Market panel for current releases and historical "
-                "vintages. The committed CSV snapshots remain available without a key."
+                "Used by Labour Market for current releases and historical vintages. "
+                "Saving a key also switches Financial Stress into live-refresh mode; "
+                "its FRED and Yahoo feeds still retain local fallbacks."
             )
         right.metric("Status", "CONNECTED" if configured else "CACHED")
 
