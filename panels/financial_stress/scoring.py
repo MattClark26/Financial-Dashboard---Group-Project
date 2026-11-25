@@ -52,7 +52,11 @@ def _score_zvalue(value: float) -> float:
     return max(0.0, min(100.0, 50.0 + float(value) * (50.0 / 3.0)))
 
 
-def score_history(analytics: FinancialStressAnalytics) -> pd.DataFrame:
+def score_history(
+    analytics: FinancialStressAnalytics,
+    *,
+    weights: Mapping[str, float] | None = None,
+) -> pd.DataFrame:
     """Build an auditable weekly score, breadth and component contribution table."""
     available = {
         key: column
@@ -68,16 +72,30 @@ def score_history(analytics: FinancialStressAnalytics) -> pd.DataFrame:
             lambda value: _score_zvalue(value) if pd.notna(value) else float("nan")
         )
 
-    weights = pd.Series({key: COMPONENT_WEIGHTS[key] for key in available})
-    valid_weights = scores.notna().mul(weights, axis="columns")
+    selected_weights = weights or COMPONENT_WEIGHTS
+    unknown = set(selected_weights) - set(COMPONENT_COLUMNS)
+    if unknown:
+        raise ValueError(f"Unknown stress weight keys: {', '.join(sorted(unknown))}.")
+    if any(float(value) < 0 for value in selected_weights.values()):
+        raise ValueError("Stress component weights cannot be negative.")
+    active_weights = pd.Series(
+        {key: float(selected_weights.get(key, 0.0)) for key in available}
+    )
+    if active_weights.sum() <= 0:
+        raise ValueError("At least one available stress component must have a positive weight.")
+    valid_weights = scores.notna().mul(active_weights, axis="columns")
     denominator = valid_weights.sum(axis=1).replace(0, float("nan"))
-    scores["score"] = scores.mul(weights, axis="columns").sum(axis=1) / denominator
+    scores["score"] = scores.mul(active_weights, axis="columns").sum(axis=1) / denominator
     scores["breadth"] = scores[list(available)].ge(67).sum(axis=1)
     scores["available"] = scores[list(available)].notna().sum(axis=1)
     return scores
 
 
-def score_financial_stress(analytics: FinancialStressAnalytics) -> StressSignal:
+def score_financial_stress(
+    analytics: FinancialStressAnalytics,
+    *,
+    weights: Mapping[str, float] | None = None,
+) -> StressSignal:
     """Score the latest available component values without future information."""
     available = {
         key: column
@@ -87,7 +105,7 @@ def score_financial_stress(analytics: FinancialStressAnalytics) -> StressSignal:
     if not available:
         raise AnalyticsError("No standardised stress components are available to score.")
 
-    history = score_history(analytics).dropna(subset=["score"])
+    history = score_history(analytics, weights=weights).dropna(subset=["score"])
     if history.empty:
         raise AnalyticsError("Stress components need enough prior history to produce a score.")
 

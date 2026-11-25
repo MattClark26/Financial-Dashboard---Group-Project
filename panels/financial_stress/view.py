@@ -11,7 +11,7 @@ import streamlit as st
 from .data import SERIES_SPECS
 from .evaluation import BacktestResult, evaluate_alerts
 from .presentation import FinancialStressView, load_financial_stress_view
-from .scoring import COMPONENT_COLUMNS, StressSignal
+from .scoring import COMPONENT_COLUMNS, COMPONENT_WEIGHTS, StressSignal, score_history
 
 
 def _history_figure(view: FinancialStressView, weeks: int = 104) -> go.Figure:
@@ -68,7 +68,10 @@ def render_overview(
           <div class="rr-panel-title-row">
             <div>
               <h2 class="rr-panel-title">Markets under pressure</h2>
-              <p class="rr-panel-summary">{signal.verdict}</p>
+              <p class="rr-panel-summary">Combines credit spreads, volatility,
+              the Fed stress index and equity drawdown to test whether market
+              pressure is broad.</p>
+              <p class="rr-panel-verdict">{signal.verdict}</p>
             </div>
             <div class="rr-score">
               <strong>{signal.score:.0f}</strong><span>/100</span>
@@ -103,7 +106,7 @@ def render_overview(
         </div>
         """
     )
-    if st.button("Explore panel", key="open_stress"):
+    if st.button("See full Stress analysis", key="open_stress"):
         st.session_state.active_panel = "stress"
         st.rerun()
     return signal
@@ -197,13 +200,7 @@ def _backtest_figure(view: FinancialStressView, result: BacktestResult) -> go.Fi
 
 def render_detail(as_of: date, *, view: FinancialStressView) -> None:
     """Render Rohi Aluede's full-page analysis with method and provenance."""
-    actions = st.columns([1, 1, 4], vertical_alignment="center")
-    with actions[0]:
-        if st.button("Back to all signals", key="back_to_dashboard"):
-            st.session_state.active_panel = None
-            st.rerun()
-    with actions[1]:
-        refresh = st.button("Load live public data", key="load_live_data")
+    refresh = st.button("Load live public data", key="load_live_data")
     state = load_financial_stress_view(pd.Timestamp(as_of), prefer_live=True) if refresh else view
     signal = state.signal
 
@@ -224,8 +221,29 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         </section>
         """
     )
-    overview, backtest, method, sources = st.tabs(
-        ["Overview", "Backtest", "Method", "Sources"]
+    with st.expander("What each financial-stress channel tells us", expanded=True):
+        st.markdown(
+            """
+            - **Investment-grade OAS** is the extra yield investors demand over
+              Treasuries for relatively high-quality corporate debt. A sharp rise means
+              even safer companies are paying more for funding.
+            - **High-yield OAS** covers riskier borrowers and usually reacts more
+              violently when default concerns or market illiquidity increase.
+            - **VIX** measures option-implied equity volatility. It reflects the price
+              of near-term uncertainty, but can spike briefly without a recession.
+            - **STLFSI** combines rates, spreads and other market variables into the St.
+              Louis Fed's broad financial-stress index.
+            - **S&P 500 drawdown** measures the loss from the previous market peak. It
+              captures persistent damage that a one-day volatility spike can miss.
+
+            Each raw series has different units, so the panel converts it into a causal
+            trailing **z-score**. A value of +2 means the observation is two historical
+            standard deviations above its preceding baseline. The current observation
+            never enters its own baseline, which prevents look-ahead leakage.
+            """
+        )
+    overview, backtest, sensitivity, method, sources = st.tabs(
+        ["Overview", "Backtest", "Sensitivity", "Method", "Sources"]
     )
     with overview:
         st.html(
@@ -286,6 +304,48 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         st.caption(
             "Red bands mark recession episodes. Results are descriptive historical "
             "evidence, not a claim that financial stress causes recessions."
+        )
+
+    with sensitivity:
+        st.subheader("Does the conclusion depend on one weighting choice?")
+        preset = st.radio(
+            "Weighting scenario",
+            ["Baseline", "Equal weights", "Credit-heavy"],
+            horizontal=True,
+            key="stress_weighting_scenario",
+        )
+        scenarios = {
+            "Baseline": dict(COMPONENT_WEIGHTS),
+            "Equal weights": {key: 0.20 for key in COMPONENT_COLUMNS},
+            "Credit-heavy": {
+                "ig_oas": 0.25,
+                "hy_oas": 0.35,
+                "vix": 0.15,
+                "stlfsi": 0.15,
+                "drawdown": 0.10,
+            },
+        }
+        scenario_weights = scenarios[preset]
+        scenario_history = score_history(state.analytics, weights=scenario_weights)
+        latest_scenario = float(scenario_history["score"].dropna().iloc[-1])
+        difference = latest_scenario - signal.score
+        columns = st.columns(3)
+        columns[0].metric("Scenario score", f"{latest_scenario:.1f} / 100")
+        columns[1].metric("Baseline score", f"{signal.score:.1f} / 100")
+        columns[2].metric("Difference", f"{difference:+.1f} points")
+        st.dataframe(
+            pd.DataFrame(
+                {
+                    "Component": [key.replace("_", " ").upper() for key in scenario_weights],
+                    "Weight": [f"{value:.0%}" for value in scenario_weights.values()],
+                }
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+        st.caption(
+            "A robust signal should not change category solely because of a reasonable "
+            "alternative weighting. This check changes weights only; it does not refit history."
         )
 
     with method:

@@ -1,14 +1,17 @@
-
 from datetime import date
 from pathlib import Path
 
 import streamlit as st
+import pandas as pd
 
-from panels import bond_market, financial_stress, irish_lens
+from panels import bond_market, financial_stress, irish_lens, labour_market
 from ui.controls import render_time_machine
+from ui.connections import activate_session_credentials, render_connections
 from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
-from ui.panels import PANEL_IDENTITIES, render_connected_panel, render_placeholder
+from ui.navigation import render_back_to_signals
+from ui.panels import PANEL_IDENTITIES, render_connected_panel
+from ui.signal_lab import render_signal_lab, render_signal_lab_preview
 from ui.shell import render_composite, render_topbar
 
 
@@ -16,82 +19,134 @@ def open_bond_market() -> None:
     st.session_state["active_panel"] = "bond"
 
 
-def close_bond_market() -> None:
-    st.session_state["active_panel"] = None
+def open_connections() -> None:
+    st.session_state["active_panel"] = "connections"
+
+
+def open_signal_lab() -> None:
+    st.session_state["active_panel"] = "signal_lab"
 
 
 def render_workspace() -> None:
+    activate_session_credentials()
     default_date = st.session_state.get("as_of", date.today())
     active_panel = st.session_state.get("active_panel")
 
+    if active_panel == "connections":
+        scroll_to_top()
+        render_back_to_signals(key="connections_back")
+        render_connections()
+        return
+
     if active_panel == "bond":
         scroll_to_top()
-        st.button(
-            "← Back to dashboard",
-            key="bond_market_back",
-            on_click=close_bond_market
-        )
+        render_back_to_signals(key="bond_market_back")
         bond_market.render_full(default_date)
+        return
+
+    if active_panel == "labour":
+        scroll_to_top()
+        render_back_to_signals(key="labour_market_back")
+        labour_market.render_detail(default_date)
         return
 
     stress_view = financial_stress.load_financial_stress_view(default_date)
 
-    if active_panel == "stress":
+    if active_panel == "signal_lab":
         scroll_to_top()
-        financial_stress.render_detail(default_date, view=stress_view)
+        render_back_to_signals(key="signal_lab_back")
+        render_signal_lab(stress_view)
         return
 
-    render_topbar(default_date)
+    if active_panel == "irish":
+        scroll_to_top()
+        render_back_to_signals(key="irish_lens_back")
+        irish_lens.render_detail(default_date)
+        return
+
+    if active_panel == "stress":
+        scroll_to_top()
+        render_back_to_signals(key="financial_stress_back")
+        financial_stress.render_detail(
+            default_date,
+            view=stress_view,
+        )
+        return
 
     with st.container(key="control_deck"):
         timeline, composite = st.columns(
-            [3, 2], gap="large", vertical_alignment="center"
+            [3, 2],
+            gap="large",
+            vertical_alignment="center",
         )
 
         with timeline:
             as_of = render_time_machine(default_date)
-
+        irish_signal = irish_lens.load_irish_lens_signal(
+            pd.Timestamp(as_of)
+        )
+        labour_signal = labour_market.load_labour_market_signal(as_of)
+        bond_signal = bond_market.load_bond_market_signal(as_of)
         with composite:
-            render_composite({"stress": stress_view.signal.score})
+            render_composite({
+                "bond": bond_signal["score"],
+                "labour": labour_signal["score"],
+                "stress": stress_view.signal.score,
+                "irish": irish_signal["score"],
+            })
 
-    for offset in (0, 2):
-        columns = st.columns(2, gap=None)
+    render_topbar(
+        as_of,
+        connected_count=4,
+    )
+    connection_action, _ = st.columns([1, 4])
+    connection_action.button(
+        "Data connections & API keys",
+        key="open_data_connections",
+        on_click=open_connections,
+        width="stretch",
+    )
 
-        for index, column in enumerate(columns, start=offset):
-            with column:
-                identity = PANEL_IDENTITIES[index]
+    with st.container(key="signal_matrix"):
+        top_left, top_right = st.columns(2, gap=None)
+        with top_left:
+            render_connected_panel(
+                PANEL_IDENTITIES[0],
+                bond_market,
+                as_of,
+                signal=bond_signal,
+            )
+            st.button(
+                "See full Bond analysis",
+                key="bond_market_open",
+                width="stretch",
+                on_click=open_bond_market,
+            )
+        with top_right:
+            render_connected_panel(
+                PANEL_IDENTITIES[1],
+                labour_market,
+                as_of,
+                signal=labour_signal,
+            )
 
-                if identity.key == "stress":
-                    render_connected_panel(
-                        identity,
-                        financial_stress,
-                        as_of,
-                        view=stress_view
-                    )
+        with st.container(key="signal_lab_preview"):
+            render_signal_lab_preview(stress_view, on_open=open_signal_lab)
 
-                elif identity.key == "bond":
-                    render_connected_panel(
-                        identity,
-                        bond_market,
-                        as_of
-                    )
-
-                    st.button(
-                        "Explore Bond Market",
-                        key="bond_market_open",
-                        width="stretch",
-                        on_click=open_bond_market
-                    )
-
-                elif identity.key == "irish":
-                    render_connected_panel(
-                        identity,
-                        irish_lens,
-                        as_of
-                    )
-
-                else:
-                    render_placeholder(identity)
+        bottom_left, bottom_right = st.columns(2, gap=None)
+        with bottom_left:
+            render_connected_panel(
+                PANEL_IDENTITIES[2],
+                financial_stress,
+                as_of,
+                view=stress_view,
+            )
+        with bottom_right:
+            render_connected_panel(
+                PANEL_IDENTITIES[3],
+                irish_lens,
+                as_of,
+            )
 
 
 def main() -> None:

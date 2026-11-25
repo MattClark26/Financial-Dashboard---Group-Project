@@ -8,7 +8,10 @@ from typing import Mapping
 import streamlit as st
 
 
-def render_topbar(as_of: date) -> None:
+def render_topbar(
+    as_of: date,
+    connected_count: int = 1,
+) -> None:
     """Render the compact application header."""
     st.html(
         f"""
@@ -21,7 +24,9 @@ def render_topbar(as_of: date) -> None:
             <span>MACRO EARLY WARNING</span>
             <strong>{as_of:%d %b %Y}</strong>
           </div>
-          <span class="rr-topbar-meta">1 OF 4 CONNECTED</span>
+          <span class="rr-topbar-meta">
+            {connected_count} OF 4 CONNECTED
+          </span>
         </header>
         """
     )
@@ -48,7 +53,7 @@ def render_composite(scores: Mapping[str, float]) -> None:
     """Render the aggregate while clearly stating how many panels contribute."""
     score = calculate_composite(scores)
     if score is None:
-        value, status, marker = "—", "WAITING", 0.0
+        value, status, marker = "Not available", "WAITING", 0.0
     else:
         value = f"{score:.0f}"
         status = "ALERT" if score >= 67 else "WATCH" if score >= 34 else "CALM"
