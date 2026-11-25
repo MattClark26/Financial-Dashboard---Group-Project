@@ -10,6 +10,74 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 PROBABILITY_CACHE = DATA_DIR / "us_recession_probability.csv"
 
 
+BOND_STYLES = """
+<style>
+/* Text styles are limited to Bond Market text, not Streamlit controls or icons. */
+.bond-title,
+.bond-score,
+.bond-body,
+.bond-note {
+    font-family: Arial, Helvetica, sans-serif !important;
+    letter-spacing: normal !important;
+    opacity: 1 !important;
+}
+.bond-title {
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: #222222 !important;
+    line-height: 1.35 !important;
+    margin: 0 0 10px 0 !important;
+}
+.bond-score {
+    font-size: 36px !important;
+    font-weight: 700 !important;
+    color: #222222 !important;
+    line-height: 1.25 !important;
+    margin: 0 0 12px 0 !important;
+}
+.bond-body {
+    font-size: 16px !important;
+    font-weight: 400 !important;
+    color: #222222 !important;
+    line-height: 1.5 !important;
+    margin: 0 0 10px 0 !important;
+}
+.bond-note {
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    color: #555555 !important;
+    line-height: 1.5 !important;
+    margin: 0 0 10px 0 !important;
+}
+.bond-body strong,
+.bond-note strong {
+    font-weight: 700 !important;
+}
+/* Style tab text only. Leave Streamlit's expander arrows untouched. */
+[data-testid="stTabs"] [role="tab"] p {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 16px !important;
+    line-height: 1.4 !important;
+    opacity: 1 !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] p {
+    color: #e87e00 !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="false"] p {
+    color: #333333 !important;
+}
+/* Do not set font-family or font-size on summary or its spans: these include the arrow icon. */
+[data-testid="stExpander"] summary {
+    background-color: #f2eee6 !important;
+}
+[data-testid="stExpander"] summary p {
+    color: #222222 !important;
+    opacity: 1 !important;
+}
+</style>
+"""
+
+
 def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
     if not PROBABILITY_CACHE.exists():
         return pd.Series(dtype="float64", name="Recession Probability (%)")
@@ -135,14 +203,15 @@ def get_warning_score(as_of: date):
 
 
 def render(as_of: date) -> None:
-    st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
+    st.html(BOND_STYLES)
+    st.html('<h2 class="bond-title">Bond Market Signal</h2>')
     st.html(
-        '<p style="color: #444444; margin: 0 0 10px 0;">'
+        '<p class="bond-body">'
         'Explore Treasury yield curves, corporate credit spreads and US recession probabilities.'
         '</p>'
     )
     st.html(
-        f'<p style="color: #666666; margin: 0 0 12px 0;">'
+        f'<p class="bond-note">'
         f'Time Machine: {as_of:%b %Y}'
         f'</p>'
     )
@@ -150,16 +219,16 @@ def render(as_of: date) -> None:
     warning = get_warning_score(as_of)
     if warning is None:
         st.html(
-            '<p style="color: #666666; margin: 0;">'
+            '<p class="bond-note">'
             'Bond Market and Credit Spread Warning Score: unavailable (check historical BAA10Y data).'
             '</p>'
         )
     else:
         st.html(
-            f'<p style="color: #222222; font-size: 22px; margin: 0;">'
+            f'<p class="bond-body">'
             f'Bond Market and Credit Spread Warning Score: <strong>{warning["score"]}/100</strong>'
             f'</p>'
-            f'<p style="color: #666666; margin: 0;">'
+            f'<p class="bond-note">'
             f'Historical recession warning index, as of {warning["observation_month"]:%b %Y}; '
             f'not a recession probability.'
             f'</p>'
@@ -167,13 +236,14 @@ def render(as_of: date) -> None:
 
 
 def render_full(as_of: date) -> None:
+    st.html(BOND_STYLES)
     from ui.controls import render_time_machine
     as_of = render_time_machine(as_of)
 
     # Yield and corporate credit spread charts
 
-    st.html('<h2 style="color: #222222; margin: 0;">Bond Market Signal</h2>')
-    st.html('<p style="color: #444444; margin: 0;">Choose yield or credit spread</p>')
+    st.html('<h2 class="bond-title">Bond Market Signal</h2>')
+    st.html('<p class="bond-body">Choose yield or credit spread</p>')
 
     titles = {
         "T10Y3M": "10-Year minus 3-Month Treasury Spread",
@@ -260,7 +330,7 @@ def render_full(as_of: date) -> None:
             )
             fig.update_xaxes(dtick="M60", tick0="1980-01-01", tickformat="%Y")
             st.plotly_chart(fig, width="stretch")
-            st.html(f'<p style="color: #222222;">{signal}</p>')
+            st.html(f'<p class="bond-body">{signal}</p>')
 
     # Prepare regression data
 
@@ -342,37 +412,7 @@ def render_full(as_of: date) -> None:
 
     # Website display
 
-    st.html("""
-    <style>
-    [data-testid="stExpander"] summary {
-        background-color: #f2eee6 !important;
-    }
 
-    [data-testid="stExpander"] summary p,
-    [data-testid="stExpander"] summary span {
-        color: #222222 !important;
-        opacity: 1 !important;
-    }
-
-    [data-testid="stTabs"] button[aria-selected="false"],
-    [data-testid="stTabs"] button[aria-selected="false"] p,
-    [data-testid="stTabs"] button[aria-selected="false"] span {
-        color: #333333 !important;
-        opacity: 1 !important;
-    }
-
-    div[data-testid="stTabs"] button[data-baseweb="tab"],
-    div[data-testid="stTabs"] button[data-baseweb="tab"] p {
-        color: #333333 !important;
-        opacity: 1 !important;
-    }
-
-    div[data-testid="stTabs"] button[aria-selected="true"],
-    div[data-testid="stTabs"] button[aria-selected="true"] p {
-        color: #e87e00 !important;
-    }
-    </style>
-    """)
 
     historical = model_data[
         (model_data.index + pd.DateOffset(months=12) <= cutoff) &
@@ -382,31 +422,36 @@ def render_full(as_of: date) -> None:
     # Bond market warning score
 
     warning = get_warning_score(as_of)
-    st.html('<h3 style="color: #222222; margin-bottom: 4px;">Bond Market and Credit Spread Warning Score</h3>')
+    st.html('<h3 class="bond-title">Bond Market and Credit Spread Warning Score</h3>')
     if warning is None:
         st.warning(
             "Warning score unavailable for this Time Machine date. "
             "It requires historical Treasury, recession and BAA10Y data."
         )
     else:
-        st.metric("Historical recession warning index", f'{warning["score"]}/100')
+        st.html(
+            '<p class="bond-note">Historical recession warning index</p>'
+            f'<p class="bond-score">{warning["score"]}/100</p>'
+        )
         st.progress(warning["score"])
         st.html(
-            f'<p style="color: #222222;">'
+            f'<p class="bond-body">'
             f'Yield curve percentile: <strong>{warning["yield_rank"]}/100</strong> '
             f'(70% weight) &nbsp;|&nbsp; '
             f'Credit stress percentile: <strong>{warning["credit_rank"]}/100</strong> '
             f'(30% weight)'
             f'</p>'
         )
-        st.caption(
+        st.html(
+            f'<p class="bond-note">'
             f'Observation: {warning["observation_month"]:%b %Y}. '
             f'Ranked against {warning["comparison_months"]} months available '
-            'up to this Time Machine date, beginning in the Baa data period. '
-            'A score of 80 is not an 80% chance of recession.'
+            f'up to this Time Machine date, beginning in the Baa data period. '
+            f'A score of 80 is not an 80% chance of recession.</p>'
         )
         with st.expander("How the warning score is calculated"):
-            st.write(
+            st.html(
+                '<p class="bond-body">'
                 "The Baseline estimates the probability of being in recession "
                 "exactly 12 months later. The Baa model estimates whether "
                 "the economy is in recession in the current month. "
@@ -418,6 +463,7 @@ def render_full(as_of: date) -> None:
                 "The Probit coefficients use the full available historical dataset, "
                 "so past Time Machine scores are retrospective estimates, "
                 "not genuine forecasts made at that time."
+                '</p>'
             )
 
     tab1, tab2, tab3 = st.tabs([
@@ -428,16 +474,16 @@ def render_full(as_of: date) -> None:
 
     with tab1:
         st.html(
-            f'<p style="color: #222222;">'
+            f'<p class="bond-body">'
             f'Recession probability (12 months ahead): {probability:.1f}%'
             f'</p>'
         )
         st.html(
-            f'<p style="color: #222222;">'
+            f'<p class="bond-body">'
             f'Historical correlation: {correlation:.3f}'
             f'</p>'
         )
-        st.html('<p style="color: #222222;">Regression coefficients:</p>')
+        st.html('<p class="bond-body">Regression coefficients:</p>')
         st.write(model.params)
 
         with st.expander("Baseline historical recession probabilities"):
@@ -474,7 +520,7 @@ def render_full(as_of: date) -> None:
             else:
                 selected_month = selected_period.index.max()
                 st.html(
-                    f'<p style="color: #222222;">'
+                    f'<p class="bond-body">'
                     f'Selected period: {selected_month:%b %Y} and the previous 12 months'
                     f'</p>'
                 )
@@ -489,7 +535,7 @@ def render_full(as_of: date) -> None:
                 last_month = full_table.index.max()
 
                 st.html(
-                    f'<p style="color: #222222;">'
+                    f'<p class="bond-body">'
                     f'Full historical data: {first_month:%b %Y} to {last_month:%b %Y}'
                     f'</p>'
                 )
@@ -520,16 +566,16 @@ def render_full(as_of: date) -> None:
             second_probability = second_model.predict(second_input).iloc[0] * 100
 
             st.html(
-                f'<p style="color: #222222;">'
+                f'<p class="bond-body">'
                 f'Recession probability (12 months ahead): {second_probability:.1f}%'
                 f'</p>'
             )
             st.html(
-                f'<p style="color: #222222;">'
+                f'<p class="bond-body">'
                 f'Weighted inversion index (24 months): {weighted_value:.3f}'
                 f'</p>'
             )
-            st.html('<p style="color: #222222;">Regression coefficients:</p>')
+            st.html('<p class="bond-body">Regression coefficients:</p>')
             st.write(second_model.params)
 
         with st.expander("Weighted inversion historical probabilities"):
@@ -562,7 +608,7 @@ def render_full(as_of: date) -> None:
             else:
                 selected_month = selected_period.index.max()
                 st.html(
-                    f'<p style="color: #222222;">'
+                    f'<p class="bond-body">'
                     f'Selected period: {selected_month:%b %Y} and the previous 12 months'
                     f'</p>'
                 )
@@ -575,7 +621,7 @@ def render_full(as_of: date) -> None:
                 first_month = full_table.index.min()
                 last_month = full_table.index.max()
                 st.html(
-                    f'<p style="color: #222222;">'
+                    f'<p class="bond-body">'
                     f'Full historical data: {first_month:%b %Y} to {last_month:%b %Y}'
                     f'</p>'
                 )
@@ -607,27 +653,29 @@ def render_full(as_of: date) -> None:
                 credit_correlation = third_data["credit_spread"].corr(third_data["USREC"])
 
                 st.html(
-                    f'<p style="color: #222222;">'
+                    f'<p class="bond-body">'
                     f'Estimated probability of recession now: {third_probability:.1f}%'
                     f'</p>'
                 )
                 st.html(
-                    f'<p style="color: #222222;">'
+                    f'<p class="bond-body">'
                     f"Moody's Baa credit spread ({selected_credit_month:%b %Y}): "
                     f'{selected_credit:.2f} percentage points'
                     f'</p>'
                 )
                 st.html(
-                    f'<p style="color: #222222;">'
+                    f'<p class="bond-body">'
                     f'Historical correlation with same-month recession: '
                     f'{credit_correlation:.3f}'
                     f'</p>'
                 )
-                st.caption(
-                    "This is a same-month recession nowcast based on credit spreads, "
-                    "not a 12-month-ahead forecast or an official recession determination."
+                st.html(
+                    '<p class="bond-note">'
+                    'This is a same-month recession nowcast based on credit spreads, '
+                    'not a 12-month-ahead forecast or an official recession determination.'
+                    '</p>'
                 )
-                st.html('<p style="color: #222222;">Regression coefficients:</p>')
+                st.html('<p class="bond-body">Regression coefficients:</p>')
                 st.write(third_model.params)
 
             with st.expander("Baa current-recession historical probabilities"):
@@ -657,7 +705,7 @@ def render_full(as_of: date) -> None:
                 else:
                     selected_month = selected_period.index.max()
                     st.html(
-                        f'<p style="color: #222222;">'
+                        f'<p class="bond-body">'
                         f'Selected period: {selected_month:%b %Y} '
                         f'and the previous 12 months'
                         f'</p>'
@@ -671,7 +719,7 @@ def render_full(as_of: date) -> None:
                     first_month = full_table.index.min()
                     last_month = full_table.index.max()
                     st.html(
-                        f'<p style="color: #222222;">'
+                        f'<p class="bond-body">'
                         f'Full historical data: {first_month:%b %Y} '
                         f'to {last_month:%b %Y}'
                         f'</p>'
