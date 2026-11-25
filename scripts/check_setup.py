@@ -21,6 +21,7 @@ REQUIRED_MODULES = {
     "pyjstat": "pyjstat",
     "yfinance": "yfinance",
     "fredapi": "fredapi",
+    "sklearn": "scikit-learn",
 }
 
 REQUIRED_FILES = (
@@ -35,11 +36,14 @@ REQUIRED_FILES = (
     "data/T10Y3M.csv",
     "data/UNRATE.csv",
     "data/USREC.csv",
+    "data/BAA10Y.csv",
     "data/irish_exports.csv",
     "data/irish_gdp.csv",
     "data/irish_mdd.csv",
     "data/irish_unemployment.csv",
     "data/us_recession_probability.csv",
+    "baa_model_comparison_probabilities.csv",
+    "compare_baa_website_models.py",
 )
 
 
