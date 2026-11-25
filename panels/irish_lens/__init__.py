@@ -331,7 +331,7 @@ def _plot_export_exposure(
             y=exposure["12-month average (%)"],
             mode="lines",
             name="12-month average",
-            line={"color": "#15130f", "width": 3},,
+            line={"color": "#15130f", "width": 3},
         )
     )
 
