@@ -205,7 +205,7 @@ def compute_sahm_rule(unemployment: pd.Series) -> pd.DataFrame:
             "trigger": sahm_indicator >= 0.50,
         }
     )
-    
+
 def _style_irish_chart(figure: go.Figure) -> go.Figure:
     figure.update_layout(
         template="plotly_white",
@@ -225,7 +225,7 @@ def _style_irish_chart(figure: go.Figure) -> go.Figure:
         },
     )
     return figure
-    
+
 def _plot_sahm_rule(sahm: pd.DataFrame) -> go.Figure:
     """Create the Irish Sahm Rule chart."""
     figure = go.Figure()
