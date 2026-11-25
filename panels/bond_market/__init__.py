@@ -202,7 +202,18 @@ def get_warning_score(as_of: date):
     }
 
 
-def render(as_of: date) -> None:
+def load_bond_market_signal(as_of: date) -> dict:
+    warning = get_warning_score(as_of)
+    if warning is None:
+        raise ValueError(
+            "Bond Market score could not be calculated. Check that "
+            "T10Y3M.csv, USREC.csv and BAA10Y.csv have sufficient "
+            "historical data in the data folder."
+        )
+    return warning
+
+
+def render(as_of: date, signal: dict | None = None) -> None:
     st.html(BOND_STYLES)
     st.html('<h2 class="bond-title">Bond Market Signal</h2>')
     st.html(
@@ -216,7 +227,7 @@ def render(as_of: date) -> None:
         f'</p>'
     )
 
-    warning = get_warning_score(as_of)
+    warning = signal if isinstance(signal, dict) else get_warning_score(as_of)
     if warning is None:
         st.html(
             '<p class="bond-note">'
