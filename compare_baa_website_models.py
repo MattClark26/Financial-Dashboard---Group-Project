@@ -86,7 +86,7 @@ def main():
         website_scores.append({"Model": name, "Training months": len(train), **score(common["recession_12m"], probabilities)})
         print("\n" + name + " website coefficients:")
         print(model.params.round(4).to_string())
-    print("\nWEBSITE-STYLE RESULTS — common evaluation months")
+    print("\nWEBSITE-STYLE RESULTS: common evaluation months")
     print(pd.DataFrame(website_scores).to_string(index=False))
 
     # Fit all three on exactly the same months as a separate fair-fitting comparison.

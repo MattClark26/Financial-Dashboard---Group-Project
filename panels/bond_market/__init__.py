@@ -24,6 +24,7 @@ from ui.presentation import (
 TITLE = "Bond market"
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 PROBABILITY_CACHE = DATA_DIR / "us_recession_probability.csv"
+MODEL_COMPARISON_CACHE = DATA_DIR.parent / "baa_model_comparison_probabilities.csv"
 
 
 def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
@@ -95,7 +96,7 @@ def render(as_of: date, *, signal: dict | None = None) -> dict:
         </div>
         <div class="rr-metric-grid">
           <div class="rr-metric"><span>TIME MACHINE</span><strong>{as_of:%b %Y}</strong></div>
-          <div class="rr-metric"><span>SPREADS</span><strong>10Y-3M / 10Y-2Y</strong></div>
+          <div class="rr-metric"><span>SPREADS</span><strong>TREASURY / BAA CREDIT</strong></div>
           <div class="rr-metric"><span>DATA MODE</span><strong>CACHED FRED</strong></div>
         </div>
         """
@@ -171,6 +172,46 @@ def _spread_figure(
     return figure
 
 
+def _credit_figure(values: pd.Series, recessions: pd.Series) -> go.Figure:
+    figure = go.Figure()
+    figure.add_scatter(
+        x=values.index,
+        y=values,
+        mode="lines",
+        line={"color": RED, "width": 2},
+        name="Baa credit spread",
+        hovertemplate="%{x|%d %b %Y}<br>%{y:.2f} percentage points<extra></extra>",
+    )
+    for start, end in _recession_periods(recessions):
+        if end < values.index.min() or start > values.index.max():
+            continue
+        figure.add_vrect(
+            x0=start,
+            x1=end + pd.offsets.MonthEnd(1),
+            fillcolor="rgba(105,100,91,.18)",
+            line_width=0,
+            layer="below",
+        )
+    figure.update_layout(
+        title="Moody's Baa Corporate Bond Spread",
+        height=470,
+        xaxis_title=None,
+        yaxis_title="Percentage points",
+        hovermode="x unified",
+        showlegend=False,
+    )
+    return figure
+
+
+def _load_model_comparison(as_of: pd.Timestamp) -> pd.DataFrame:
+    if not MODEL_COMPARISON_CACHE.exists():
+        return pd.DataFrame()
+    frame = pd.read_csv(MODEL_COMPARISON_CACHE)
+    frame["Month"] = pd.to_datetime(frame["Month"], errors="coerce")
+    frame = frame.dropna(subset=["Month"]).set_index("Month").sort_index()
+    return frame[frame.index <= as_of]
+
+
 def _baseline_correlation(as_of: pd.Timestamp) -> float | None:
     frame = pd.read_csv(PROBABILITY_CACHE)
     frame["Date"] = pd.to_datetime(frame["Date"], errors="coerce")
@@ -196,6 +237,7 @@ def render_full(as_of: date) -> None:
     signal = load_bond_market_signal(selected_date)
     spread_3m = _load_spread("T10Y3M", selected_date)
     spread_2y = _load_spread("T10Y2Y", selected_date)
+    credit_spread = _load_spread("BAA10Y", selected_date)
     recessions = _load_recessions(selected_date)
 
     current_spread = float(spread_3m.iloc[-1]) if not spread_3m.empty else float("nan")
@@ -228,8 +270,8 @@ def render_full(as_of: date) -> None:
         )
     )
 
-    curve_tab, baseline_tab, recent_tab, debt_tab = st.tabs(
-        ["Yield curve", "Baseline", "Recent inversion", "Government debt"]
+    curve_tab, baseline_tab, recent_tab, credit_tab = st.tabs(
+        ["Yield curve", "Baseline", "Recent inversion", "Baa credit spread"]
     )
 
     with curve_tab:
@@ -323,14 +365,83 @@ def render_full(as_of: date) -> None:
             (
                 ("INPUT 01", "10Y-3M spread", "The selected date's latest available term spread."),
                 ("INPUT 02", "Recent persistence", "Counts inverted monthly averages during the preceding year."),
-                ("OUTPUT", "Recession probability", "The cached model estimates recession risk twelve months ahead."),
+                ("INPUT 03", "Baa credit spread", "Tests whether corporate borrowing stress confirms the Treasury warning."),
+                ("OUTPUT", "Recession probability", "The cached models estimate recession risk twelve months ahead."),
             )
         )
 
-    with debt_tab:
-        st.info(
-            "The government-debt model is marked as future work. No invented result "
-            "is shown until a documented, time-aware debt series is committed."
+    with credit_tab:
+        latest_credit = float(credit_spread.iloc[-1]) if not credit_spread.empty else None
+        comparison = _load_model_comparison(selected_date)
+        latest_model = (
+            float(comparison["Baa credit spreads probability (%)"].dropna().iloc[-1])
+            if not comparison.empty
+            and comparison["Baa credit spreads probability (%)"].notna().any()
+            else None
+        )
+        render_quality_grid(
+            (
+                (
+                    f"{latest_credit:.2f}" if latest_credit is not None else "N/A",
+                    "Latest Baa spread",
+                ),
+                (
+                    f"{latest_model:.1f}%" if latest_model is not None else "N/A",
+                    "Baa model probability",
+                ),
+                ("12 months", "Forecast horizon"),
+                ("FRED BAA10Y", "Committed source"),
+            )
+        )
+        st.write(
+            "Baa-rated corporate bonds carry more default and liquidity risk than "
+            "Treasuries. A widening Baa minus Treasury spread means investors demand "
+            "more compensation to lend to riskier firms. This collaborator model adds "
+            "that credit-spread evidence to the yield curve and its recent persistence."
+        )
+        if credit_spread.empty:
+            st.info("No Baa credit-spread observations are available for this date.")
+        else:
+            st.plotly_chart(
+                _credit_figure(credit_spread, recessions),
+                width="stretch",
+                theme=None,
+                config={"displayModeBar": False, "responsive": True},
+            )
+        if not comparison.empty:
+            probability_columns = [
+                "Baseline probability (%)",
+                "Weighted inversion probability (%)",
+                "Baa credit spreads probability (%)",
+            ]
+            model_figure = go.Figure()
+            colors = (MUTED, INK, RED)
+            for column, color in zip(probability_columns, colors, strict=True):
+                model_figure.add_scatter(
+                    x=comparison.index,
+                    y=comparison[column],
+                    mode="lines",
+                    line={"color": color, "width": 2},
+                    name=column.replace(" probability (%)", ""),
+                    hovertemplate="%{x|%b %Y}<br>%{y:.1f}%<extra></extra>",
+                )
+            model_figure.update_layout(
+                title="Three-model probability comparison",
+                height=440,
+                xaxis_title=None,
+                yaxis_title="Probability (%)",
+                hovermode="x unified",
+                legend={"orientation": "h", "y": 1.12},
+            )
+            st.plotly_chart(
+                model_figure,
+                width="stretch",
+                theme=None,
+                config={"displayModeBar": False, "responsive": True},
+            )
+        render_conclusion(
+            "CREDIT IS A CONFIRMING SIGNAL",
+            "The Baa model should be read beside the Treasury models. Agreement across the three is stronger evidence than any one specification alone.",
         )
 
 
