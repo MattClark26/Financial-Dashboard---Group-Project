@@ -137,6 +137,7 @@ def render_workspace() -> None:
                 PANEL_IDENTITIES[3],
                 irish_lens,
                 as_of,
+                signal=irish_signal,
             )
 
 
