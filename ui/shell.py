@@ -60,19 +60,20 @@ def calculate_composite(
 
 
 def render_composite(scores: Mapping[str, float | None]) -> None:
-    """Render the aggregate while clearly stating how many panels contribute."""
     available_scores = {
         key: score
         for key, score in scores.items()
         if score is not None
     }
     score = calculate_composite(available_scores)
+
     if score is None:
         value, status, marker = "Not available", "WAITING", 0.0
     else:
         value = f"{score:.0f}"
         status = "ALERT" if score >= 67 else "WATCH" if score >= 34 else "CALM"
         marker = score
+
     st.html(
         f"""
         <div class="rr-control-label">

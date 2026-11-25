@@ -399,9 +399,9 @@ def score_irish_lens(
 ) -> dict:
     components = {}
     weights = {
-        "irish_sahm": 0.25,
-        "us_export_share": 0.25,
-        "gdp_mdd_divergence": 0.15,
+        "irish_sahm": 1.0,
+        "us_export_share": 1.0,
+        "gdp_mdd_divergence": 1.0,
     }
 
     if sahm_indicator is not None:
@@ -653,11 +653,16 @@ def render(as_of: date) -> dict:
         gdp_index=gdp_index,
         mdd_index=mdd_index,
     )
+    available_inputs = len(panel_signal["components"])
 
-    trigger_count = 0
+    trigger_count = None
     if not unemployment.empty:
         sahm = compute_sahm_rule(unemployment)
         trigger_count = int(sahm["trigger"].fillna(False).sum())
+
+    trigger_count_display = (
+    str(trigger_count) if trigger_count is not None else "Not available"
+    )
 
     latest_export_share = None
     if not export_exposure.empty:
@@ -669,10 +674,7 @@ def render(as_of: date) -> dict:
     status = panel_signal["status"]
 
     if status == "UNAVAILABLE":
-        verdict = (
-            "Irish Lens score is unavailable because no indicator data "
-            "is available for this date."
-        )
+        verdict = "Irish Lens score is unavailable because no indicator data is available."
     elif status == "ALERT":
         verdict = (
             "Multiple Irish Lens indicators indicate acute recession risk; "
@@ -691,6 +693,10 @@ def render(as_of: date) -> dict:
 
     score_display = f"{score:.0f}" if score is not None else "N/A"
     score_unit = "/100" if score is not None else ""
+    trigger_count_display = (
+        str(trigger_count) if trigger_count is not None else "N/A"
+    )
+    coverage_display = f"{available_inputs}/3 scoring inputs available"
 
     st.html(
         f"""
@@ -701,7 +707,7 @@ def render(as_of: date) -> dict:
               <p class="rr-panel-summary">Separates domestic demand from
               headline GDP and tests how US weakness may transmit through
               trade and employment.</p>
-              <p class="rr-panel-verdict">{verdict}</p>
+              <p class="rr-panel-verdict">{verdict} ({coverage_display})</p>
             </div>
             <div class="rr-score">
              <strong>{score_display}</strong><span>{score_unit}</span>
@@ -728,7 +734,7 @@ def render(as_of: date) -> dict:
           </div>
           <div class="rr-metric">
             <span>SAHM TRIGGERS</span>
-            <strong>{trigger_count}</strong>
+            <strong>{trigger_count_display}</strong>
           </div>
           <div class="rr-metric">
             <span>GDP / MDD</span>
@@ -980,12 +986,11 @@ def render_detail(as_of: date) -> None:
             average with its twelve-month minimum. The 0.50-point threshold
             is shown as a recession warning.
             
-            Current weights are 25% Irish Sahm, 25% US export share, and 15%
-            GDP/MDD divergence, which normalize to approximately 38.5%, 38.5%,
-            and 23.1%. . Component scores are bounded from 0 to 100; missing 
-            components are omitted and the remaining weights are renormalized. 
-            The status bands are CALM below 34, WATCH from 34 through 66, and 
-            ALERT at 67 or above.
+            The three available components—Irish Sahm, US export share, and GDP/MDD
+            divergence—are equally weighted. When all are present, each contributes
+            one third. If inputs are missing, the remaining weights are renormalized,
+            and the overview reports how many inputs are available. These weights are
+            a provisional baseline, not an empirically calibrated model.
             """
         )
 
