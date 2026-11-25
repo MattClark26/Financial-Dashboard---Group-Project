@@ -59,9 +59,14 @@ def calculate_composite(
     ) / denominator
 
 
-def render_composite(scores: Mapping[str, float]) -> None:
+def render_composite(scores: Mapping[str, float | None]) -> None:
     """Render the aggregate while clearly stating how many panels contribute."""
-    score = calculate_composite(scores)
+    available_scores = {
+        key: score
+        for key, score in scores.items()
+        if score is not None
+    }
+    score = calculate_composite(available_scores)
     if score is None:
         value, status, marker = "Not available", "WAITING", 0.0
     else:
@@ -72,7 +77,7 @@ def render_composite(scores: Mapping[str, float]) -> None:
         f"""
         <div class="rr-control-label">
           <span>CONNECTED COMPOSITE</span>
-          <strong>{len(scores)} / 4 PANELS</strong>
+          <strong>{len(available_scores)} / 4 PANELS</strong>
         </div>
         <div class="rr-composite">
           <div><strong>{value}</strong><small>/100</small></div>
