@@ -33,19 +33,29 @@ def render_topbar(
 
 
 def calculate_composite(
-    scores: Mapping[str, float],
+    scores: Mapping[str, float | None],
     weights: Mapping[str, float] | None = None,
 ) -> float | None:
-    """Return a weighted average of connected panel scores."""
-    if not scores:
+    available_scores = {
+        key: score
+        for key, score in scores.items()
+        if score is not None
+    }
+    if not available_scores:
         return None
-    active_weights = weights or {key: 1.0 for key in scores}
-    denominator = sum(max(active_weights.get(key, 0.0), 0.0) for key in scores)
+
+    active_weights = weights or {key: 1.0 for key in available_scores}
+    denominator = sum(
+        max(active_weights.get(key, 0.0), 0.0)
+        for key in available_scores
+    )
     if denominator == 0:
         return None
+
     return sum(
-        max(0.0, min(100.0, score)) * max(active_weights.get(key, 0.0), 0.0)
-        for key, score in scores.items()
+        max(0.0, min(100.0, score))
+        * max(active_weights.get(key, 0.0), 0.0)
+        for key, score in available_scores.items()
     ) / denominator
 
 
