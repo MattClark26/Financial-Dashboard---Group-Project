@@ -321,7 +321,7 @@ def _plot_export_exposure(
             y=exposure["US Share (%)"],
             mode="lines",
             name="Monthly US share",
-            line={"color": "#d75f47", "width": 1.8},,
+            line={"color": "#d75f47", "width": 1.8},
         )
     )
 
