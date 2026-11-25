@@ -422,8 +422,8 @@ def score_irish_lens(
 
     if not components:
         return {
-            "score": 0.0,
-            "status": "WATCH",
+            "score": None,
+            "status": "UNAVAILABLE",
             "components": {},
         }
 
@@ -668,21 +668,29 @@ def render(as_of: date) -> dict:
     score = panel_signal["score"]
     status = panel_signal["status"]
 
-    if status == "ALERT":
+    if status == "UNAVAILABLE":
         verdict = (
-        "Multiple Irish Lens indicators indicate acute recession risk; "
-        "the evidence is broad but does not prove a recession."
+            "Irish Lens score is unavailable because no indicator data "
+            "is available for this date."
+        )
+    elif status == "ALERT":
+        verdict = (
+            "Multiple Irish Lens indicators indicate acute recession risk; "
+            "the evidence is broad but does not prove a recession."
         )
     elif status == "WATCH":
         verdict = (
-        "Irish Lens indicators are mixed or moderately elevated; "
-        "monitor US transmission and domestic warning signals."
+            "Irish Lens indicators are mixed or moderately elevated; "
+            "monitor US transmission and domestic warning signals."
         )
     else:
         verdict = (
-        "Irish Lens indicators remain contained relative to the "
-        "current scoring thresholds."
+            "Irish Lens indicators remain contained relative to the "
+            "current scoring thresholds."
         )
+
+    score_display = f"{score:.0f}" if score is not None else "N/A"
+    score_unit = "/100" if score is not None else ""
 
     st.html(
         f"""
@@ -696,7 +704,7 @@ def render(as_of: date) -> dict:
               <p class="rr-panel-verdict">{verdict}</p>
             </div>
             <div class="rr-score">
-              <strong>{panel_signal["score"]:.0f}</strong><span>/100</span>
+             <strong>{score_display}</strong><span>{score_unit}</span>
             </div>
           </div>
         </div>

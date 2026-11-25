@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from panels import irish_lens
+from ui.shell import calculate_composite
 
 
 @pytest.mark.parametrize(
@@ -131,3 +132,20 @@ def test_track_record_counts_caught_event_and_false_alarm(
         "false_alarms": 1,
         "avg_lead_months": 8.0,
     }
+
+def test_score_is_unavailable_when_all_components_are_missing() -> None:
+    result = irish_lens.score_irish_lens(None, None, None, None)
+
+    assert result == {
+        "score": None,
+        "status": "UNAVAILABLE",
+        "components": {},
+    }
+
+
+def test_composite_ignores_unavailable_panel() -> None:
+    assert calculate_composite({"bond": 60.0, "irish": None}) == 60.0
+
+
+def test_composite_is_unavailable_when_all_panels_are_unavailable() -> None:
+    assert calculate_composite({"bond": None, "irish": None}) is None
