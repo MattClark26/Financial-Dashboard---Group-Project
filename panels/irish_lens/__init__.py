@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st    
 
 from panels.bond_market import load_recession_probability
+from ui.presentation import render_explanation_strip
 
 TITLE = "Irish lens"
 
@@ -349,6 +350,7 @@ def _render_export_exposure_chart(
     st.plotly_chart(
         _plot_export_exposure(exposure, compact=compact),
         width="stretch",
+        theme=None,
         config={"displayModeBar": False, "responsive": True},
         key=key,
     )
@@ -729,7 +731,6 @@ def render(as_of: date) -> dict:
         "status": panel_signal["status"],
         "verdict": verdict,
         "components": panel_signal["components"],
-        "track_record": _compute_irish_track_record(selected_date),
     }
 
 def render_detail(as_of: date) -> None:
@@ -756,20 +757,22 @@ def render_detail(as_of: date) -> None:
         </section>
         """
     )
-    with st.expander("How the Irish transmission channels fit together", expanded=True):
-        st.write(
-            "Headline Irish GDP can be dominated by multinational balance-sheet and "
-            "intellectual-property activity, so Modified Domestic Demand is used as a "
-            "closer view of spending inside the domestic economy. A widening GDP/MDD "
-            "gap is therefore context, not automatically a recession signal."
+    render_explanation_strip(
+        (
+            (
+                "GDP VS MDD",
+                "Headline GDP can be distorted by multinational activity. Modified Domestic Demand is a closer measure of spending inside the Irish economy.",
+            ),
+            (
+                "DOMESTIC PRESSURE",
+                "The Irish Sahm indicator checks whether unemployment is rising quickly enough to signal broad domestic weakness.",
+            ),
+            (
+                "US TRANSMISSION",
+                "Export share and imported US recession probability show how an external shock could reach Ireland while headline GDP remains strong.",
+            ),
         )
-        st.write(
-            "The Irish Sahm indicator asks whether unemployment is rising quickly; US "
-            "export share measures trade exposure; and the imported US recession "
-            "probability represents the external shock. The panel combines those "
-            "channels because Ireland can be vulnerable to a US downturn even while "
-            "headline GDP remains elevated."
-        )
+    )
     gdp_tab, sahm_tab, exports_tab, probability_tab, method, sources = st.tabs(
         [
             "GDP & MDD",
@@ -803,6 +806,7 @@ def render_detail(as_of: date) -> None:
             st.plotly_chart(
                _plot_gdp_vs_mdd(gdp, mdd),
                width="stretch",
+               theme=None,
                config={"displayModeBar": False, "responsive": True},
                key="irish_gdp_mdd_tab",
             )
@@ -823,6 +827,7 @@ def render_detail(as_of: date) -> None:
             st.plotly_chart(
                 _plot_sahm_rule(sahm),
                 width="stretch",
+                theme=None,
                 config={"displayModeBar": False, "responsive": True},
                 key="irish_sahm_tab",
             )
@@ -910,6 +915,7 @@ def render_detail(as_of: date) -> None:
             st.plotly_chart(
                 probability_figure,
                 width="stretch",
+                theme=None,
                 config={
                     "displayModeBar": False,
                     "responsive": True,

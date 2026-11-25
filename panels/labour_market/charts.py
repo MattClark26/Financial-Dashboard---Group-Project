@@ -11,12 +11,12 @@ from plotly.subplots import make_subplots
 from .claims import CLAIMS_THRESHOLD_PCT
 from .sahm import SAHM_THRESHOLD
 
-GAIN_COLOUR = "#2a78d6"
-LOSS_COLOUR = "#e34948"
-TREND_COLOUR = "#7a7974"
-REVISED_COLOUR = "#2a78d6"
-FIRST_REPORTED_COLOUR = "#eb6834"
-RECESSION_FILL = "rgba(128, 128, 128, 0.18)"  # works on light and dark themes
+GAIN_COLOUR = "#3c7555"
+LOSS_COLOUR = "#d75f47"
+TREND_COLOUR = "#69645b"
+REVISED_COLOUR = "#15130f"
+FIRST_REPORTED_COLOUR = "#f5bd3e"
+RECESSION_FILL = "rgba(105, 100, 91, 0.18)"
 
 # Axis caps, so one extreme episode (spring 2020) doesn't flatten everything else.
 PAYROLL_AXIS_LIMIT = 1_000  # thousands of jobs; 99% of months since 1939 within +/-900k

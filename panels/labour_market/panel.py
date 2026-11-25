@@ -7,6 +7,12 @@ The main app calls only render_panel(as_of). Sections run: verdict, drivers
 import pandas as pd
 import streamlit as st
 
+from ui.presentation import (
+    render_detail_hero,
+    render_explanation_strip,
+    render_quality_grid,
+)
+
 from . import charts
 from .claims import claims_indicator
 from .data import RELEASE_LAG_DAYS, filter_as_of
@@ -33,32 +39,45 @@ STATUS_LABELS = {
 def render_panel(as_of) -> None:
     """Draw the whole of Panel 2 for the time machine date `as_of`."""
     as_of = pd.Timestamp(as_of)
-    st.caption("PANEL 02 / LABOUR MARKET / TADHG FINDON")
-    st.header("Labour market: is the warning being confirmed?")
-    st.caption(
-        "Recessions are ultimately about jobs. Labour data move later than "
-        "markets, but when they turn, a downturn usually follows. This panel "
-        "checks whether the job market confirms the bond market's warning."
-    )
-    with st.expander("Why these labour indicators belong together", expanded=True):
-        st.write(
-            "The Sahm rule measures how far the three-month unemployment average has "
-            "risen above its lowest three-month average during the previous year. It "
-            "is deliberately a confirmation signal: it usually reacts after financial "
-            "markets, but closer to the point where households feel the downturn."
-        )
-        st.write(
-            "Initial claims move weekly and can warn earlier, while payrolls describe "
-            "the breadth of job creation. ALFRED vintages show what payroll growth "
-            "looked like when it was first released, preventing revised data from "
-            "making historical decisions appear easier than they really were."
-        )
-
     data = _load_data()
     if data is None:
         return
 
-    _draw_verdict(as_of, data)
+    reading = labour_reading(
+        as_of,
+        data["UNRATE"],
+        data["SAHMREALTIME"],
+        data["ICSA"],
+    )
+    signal = signal_from_reading(reading)
+    status = {"green": "CALM", "amber": "WATCH", "red": "ALERT"}[signal["status"]]
+
+    render_detail_hero(
+        kicker="PANEL 02 / LABOUR CONFIRMATION / TADHG FINDON",
+        title="Is the warning being confirmed?",
+        lede=(
+            "Recessions are ultimately about jobs. This panel checks the Sahm "
+            "rule, weekly claims, payroll growth and later data revisions."
+        ),
+        score=signal["score"],
+        status=status,
+    )
+    render_explanation_strip(
+        (
+            (
+                "SAHM RULE",
+                "The three-month unemployment average is compared with its lowest three-month average in the prior year. A 0.50-point rise is the confirmation threshold.",
+            ),
+            (
+                "CLAIMS + PAYROLLS",
+                "Claims move weekly and warn faster; payrolls show the breadth of job creation. Together they separate noise from sustained deterioration.",
+            ),
+            (
+                "ALFRED VINTAGES",
+                "First-published payrolls are compared with later revisions so the time machine reflects what analysts actually knew then.",
+            ),
+        )
+    )
 
     window = st.radio(
         "Chart period", list(WINDOW_CHOICES), index=list(WINDOW_CHOICES).index(DEFAULT_WINDOW),
@@ -67,12 +86,47 @@ def render_panel(as_of) -> None:
     start = _window_start(as_of, WINDOW_CHOICES[window])
     recessions = _recessions_to_shade(data["USREC"], as_of)
 
-    _draw_sahm_section(as_of, data, start, recessions)
-    _draw_claims_section(as_of, data, start, recessions)
-    _draw_payrolls_section(as_of, data, start, recessions)
-    _draw_revisions_section(as_of, start, recessions)
-    _draw_track_record_section(as_of, data)
-    _draw_data_note(data)
+    sahm_tab, claims_tab, payrolls_tab, revisions_tab, record_tab, sources_tab = st.tabs(
+        [
+            "Sahm rule",
+            "Jobless claims",
+            "Payrolls",
+            "First vs revised",
+            "Track record",
+            "Sources",
+        ]
+    )
+    with sahm_tab:
+        _draw_sahm_section(as_of, data, start, recessions)
+    with claims_tab:
+        _draw_claims_section(as_of, data, start, recessions)
+    with payrolls_tab:
+        _draw_payrolls_section(as_of, data, start, recessions)
+    with revisions_tab:
+        _draw_revisions_section(as_of, start, recessions)
+    with record_tab:
+        _draw_track_record_section(as_of, data)
+    with sources_tab:
+        sahm_value = reading["sahm"]
+        render_quality_grid(
+            (
+                (f"{sahm_value:.2f}" if sahm_value is not None else "N/A", "Current Sahm reading"),
+                ("0.50", "Confirmation threshold"),
+                ("6", "Inspectable datasets"),
+                ("Cache-first", "Access mode"),
+            )
+        )
+        st.markdown(
+            """
+            - Unemployment rate: FRED `UNRATE`
+            - Official Sahm rule: FRED `SAHMREALTIME`
+            - Initial claims: FRED `ICSA`
+            - Total payrolls: FRED `PAYEMS`
+            - Payroll vintages: ALFRED `PAYEMS`
+            - Recession dates: FRED `USREC`
+            """
+        )
+        _draw_data_note(data)
 
 
 # --- Sections ---
@@ -109,7 +163,9 @@ def _draw_sahm_section(as_of, data, start, recessions) -> None:
 
     st.subheader("1. The Sahm rule")
     st.plotly_chart(
-        charts.sahm_chart(ours[start:], real_time[start:], recessions), width="stretch"
+        charts.sahm_chart(ours[start:], real_time[start:], recessions),
+        width="stretch",
+        theme=None,
     )
     st.caption(charts.SAHM_CAPTION)
     with st.expander("Why are there two lines?"):
@@ -122,7 +178,11 @@ def _draw_claims_section(as_of, data, start, recessions) -> None:
     table = claims_indicator(claims)
 
     st.subheader("2. Jobless claims")
-    st.plotly_chart(charts.claims_chart(table[start:], recessions), width="stretch")
+    st.plotly_chart(
+        charts.claims_chart(table[start:], recessions),
+        width="stretch",
+        theme=None,
+    )
     st.caption(charts.CLAIMS_CAPTION)
 
 
@@ -136,7 +196,11 @@ def _draw_payrolls_section(as_of, data, start, recessions) -> None:
 
     st.subheader("3. Jobs added each month")
     table = monthly_payroll_change(payems)
-    st.plotly_chart(charts.payroll_change_chart(table[start:], recessions), width="stretch")
+    st.plotly_chart(
+        charts.payroll_change_chart(table[start:], recessions),
+        width="stretch",
+        theme=None,
+    )
     st.caption(f"{charts.PAYROLL_CAPTION} {note}")
 
 
@@ -152,7 +216,11 @@ def _draw_revisions_section(as_of, start, recessions) -> None:
         )
         return
 
-    st.plotly_chart(charts.revisions_chart(revisions[start:], recessions), width="stretch")
+    st.plotly_chart(
+        charts.revisions_chart(revisions[start:], recessions),
+        width="stretch",
+        theme=None,
+    )
     st.caption(charts.REVISIONS_CAPTION)
 
     # Skip the last ~3 months: they've barely been revised yet.

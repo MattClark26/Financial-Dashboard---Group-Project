@@ -173,7 +173,21 @@ def _read_cache(series_id: str) -> pd.Series:
             f"The FRED API failed and there is no cached file at {path}. "
             "Run once with FRED_API_KEY set to create the cache."
         )
-    table = pd.read_csv(path, index_col="date", parse_dates=["date"])
+    table = pd.read_csv(path)
+    date_column = next(
+        (
+            candidate
+            for candidate in ("date", "observation_date", "Date")
+            if candidate in table.columns
+        ),
+        None,
+    )
+    if date_column is None:
+        raise ValueError(
+            f"Cached FRED file {path.name} has no recognised date column."
+        )
+    table[date_column] = pd.to_datetime(table[date_column], errors="coerce")
+    table = table.set_index(date_column)
     return _standardise(table[series_id], series_id)
 
 

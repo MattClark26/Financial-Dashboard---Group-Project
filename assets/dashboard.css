@@ -353,7 +353,7 @@ input:focus-visible {
 }
 
 [class*="st-key-panel_"] > div {
-    min-height: 100%;
+    min-height: 0;
 }
 
 .st-key-signal_matrix {
@@ -445,7 +445,7 @@ input:focus-visible {
 
 .rr-panel-body {
     display: grid;
-    align-content: center;
+    align-content: start;
     gap: .8rem;
 }
 
@@ -718,6 +718,73 @@ input:focus-visible {
     color: var(--rr-muted);
 }
 
+.rr-explanation-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-bottom: 1px solid var(--rr-ink);
+    background: var(--rr-paper-deep);
+}
+
+.rr-explanation-strip article {
+    min-width: 0;
+    padding: clamp(1.3rem, 2.5vw, 2.4rem);
+}
+
+.rr-explanation-strip article + article {
+    border-left: 1px solid var(--rr-line-dark);
+}
+
+.rr-explanation-strip strong,
+.rr-quality-grid span {
+    color: var(--rr-muted);
+    font: 600 .72rem var(--rr-mono);
+    letter-spacing: .08em;
+}
+
+.rr-explanation-strip p {
+    margin: .65rem 0 0;
+    color: var(--rr-ink);
+    line-height: 1.55;
+}
+
+.rr-quality-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 1rem 0 1.5rem;
+    border: 1px solid var(--rr-line-dark);
+}
+
+.rr-quality-grid div {
+    min-width: 0;
+    padding: 1.25rem;
+}
+
+.rr-quality-grid div + div {
+    border-left: 1px solid var(--rr-line-dark);
+}
+
+.rr-quality-grid strong,
+.rr-quality-grid span {
+    display: block;
+}
+
+.rr-quality-grid strong {
+    margin-bottom: .45rem;
+    color: var(--rr-ink);
+    font: 550 clamp(1.25rem, 2.5vw, 2.1rem) var(--rr-sans);
+    letter-spacing: -.035em;
+    overflow-wrap: anywhere;
+}
+
+.rr-detail-copy {
+    padding: clamp(1.5rem, 4vw, 4rem) clamp(1.2rem, 7vw, 8rem);
+}
+
+.rr-detail-copy > h2,
+.rr-detail-copy > h3 {
+    color: var(--rr-ink);
+}
+
 /* eROdo-inspired cursor nodes injected into the parent document. */
 .rr-cur {
     position: fixed;
@@ -798,6 +865,9 @@ input:focus-visible {
     .rr-score, .rr-detail-score { grid-row: 1; }
     .rr-method-grid { grid-template-columns: 1fr; }
     .rr-method-card + .rr-method-card { border-left: 0; border-top: 1px solid var(--rr-ink); }
+    .rr-explanation-strip, .rr-quality-grid { grid-template-columns: 1fr; }
+    .rr-explanation-strip article + article,
+    .rr-quality-grid div + div { border-left: 0; border-top: 1px solid var(--rr-line-dark); }
 }
 
 @media (prefers-reduced-motion: reduce) {

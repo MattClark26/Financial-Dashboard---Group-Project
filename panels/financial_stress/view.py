@@ -8,6 +8,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from ui.presentation import render_explanation_strip
+
 from .data import SERIES_SPECS
 from .evaluation import BacktestResult, evaluate_alerts
 from .presentation import FinancialStressView, load_financial_stress_view
@@ -91,6 +93,7 @@ def render_overview(
     st.plotly_chart(
         _history_figure(state),
         width="stretch",
+        theme=None,
         config={"displayModeBar": False, "responsive": True},
         key="stress_overview_history",
     )
@@ -221,27 +224,22 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         </section>
         """
     )
-    with st.expander("What each financial-stress channel tells us", expanded=True):
-        st.markdown(
-            """
-            - **Investment-grade OAS** is the extra yield investors demand over
-              Treasuries for relatively high-quality corporate debt. A sharp rise means
-              even safer companies are paying more for funding.
-            - **High-yield OAS** covers riskier borrowers and usually reacts more
-              violently when default concerns or market illiquidity increase.
-            - **VIX** measures option-implied equity volatility. It reflects the price
-              of near-term uncertainty, but can spike briefly without a recession.
-            - **STLFSI** combines rates, spreads and other market variables into the St.
-              Louis Fed's broad financial-stress index.
-            - **S&P 500 drawdown** measures the loss from the previous market peak. It
-              captures persistent damage that a one-day volatility spike can miss.
-
-            Each raw series has different units, so the panel converts it into a causal
-            trailing **z-score**. A value of +2 means the observation is two historical
-            standard deviations above its preceding baseline. The current observation
-            never enters its own baseline, which prevents look-ahead leakage.
-            """
+    render_explanation_strip(
+        (
+            (
+                "CREDIT SPREADS",
+                "Investment-grade and high-yield OAS measure the extra yield companies pay above Treasuries. Rising spreads mean funding is becoming more expensive.",
+            ),
+            (
+                "VOLATILITY + BREADTH",
+                "VIX captures option-implied uncertainty while STLFSI combines several markets. Agreement across channels matters more than one isolated spike.",
+            ),
+            (
+                "CAUSAL Z-SCORES",
+                "Each observation is compared only with the preceding 156 weeks. A +2 reading is two historical standard deviations above its prior baseline.",
+            ),
         )
+    )
     overview, backtest, sensitivity, method, sources = st.tabs(
         ["Overview", "Backtest", "Sensitivity", "Method", "Sources"]
     )
@@ -257,6 +255,7 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         st.plotly_chart(
             _component_figure(state),
             width="stretch",
+            theme=None,
             config={"displayModeBar": False, "responsive": True},
             key="stress_detail_chart",
         )
@@ -298,6 +297,7 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         st.plotly_chart(
             _backtest_figure(state, result),
             width="stretch",
+            theme=None,
             config={"displayModeBar": False, "responsive": True},
             key="stress_backtest_chart",
         )

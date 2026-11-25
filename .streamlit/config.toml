@@ -1,10 +1,10 @@
 [theme]
-base = "dark"
-primaryColor = "#ff9e24"
-backgroundColor = "#080808"
-secondaryBackgroundColor = "#1a1a1a"
-textColor = "#d4d4d4"
-font = "monospace"
+base = "light"
+primaryColor = "#d75f47"
+backgroundColor = "#f2eee6"
+secondaryBackgroundColor = "#e7e0d4"
+textColor = "#15130f"
+font = "sans serif"
 baseRadius = "none"
 showWidgetBorder = true
 

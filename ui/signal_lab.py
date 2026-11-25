@@ -177,6 +177,7 @@ def render_signal_lab_preview(
     st.plotly_chart(
         _terrain_figure(view, height=460),
         width="stretch",
+        theme=None,
         config={"displayModeBar": False, "responsive": True},
         key="signal_lab_terrain_preview",
     )
@@ -263,6 +264,7 @@ def render_signal_lab(view: FinancialStressView) -> None:
     st.plotly_chart(
         _terrain_figure(view),
         width="stretch",
+        theme=None,
         config={"displayModeBar": True, "responsive": True},
         key="signal_lab_terrain",
     )
@@ -319,6 +321,7 @@ def render_signal_lab(view: FinancialStressView) -> None:
     st.plotly_chart(
         _wealth_figure(result),
         width="stretch",
+        theme=None,
         config={"displayModeBar": False, "responsive": True},
         key="signal_lab_wealth",
     )

@@ -11,12 +11,9 @@ from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
 from ui.navigation import render_back_to_signals
 from ui.panels import PANEL_IDENTITIES, render_connected_panel
+from ui.presentation import configure_plotly_theme
 from ui.signal_lab import render_signal_lab, render_signal_lab_preview
 from ui.shell import render_composite, render_topbar
-
-
-def open_bond_market() -> None:
-    st.session_state["active_panel"] = "bond"
 
 
 def open_connections() -> None:
@@ -116,12 +113,6 @@ def render_workspace() -> None:
                 as_of,
                 signal=bond_signal,
             )
-            st.button(
-                "See full Bond analysis",
-                key="bond_market_open",
-                width="stretch",
-                on_click=open_bond_market,
-            )
         with top_right:
             render_connected_panel(
                 PANEL_IDENTITIES[1],
@@ -155,6 +146,8 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="collapsed"
     )
+
+    configure_plotly_theme()
 
     st.html(Path(__file__).parent / "assets" / "dashboard.css")
     install_cursor()
