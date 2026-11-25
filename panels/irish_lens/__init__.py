@@ -205,7 +205,27 @@ def compute_sahm_rule(unemployment: pd.Series) -> pd.DataFrame:
             "trigger": sahm_indicator >= 0.50,
         }
     )
-
+    
+def _style_irish_chart(figure: go.Figure) -> go.Figure:
+    figure.update_layout(
+        template="plotly_white",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": "#15130f"},
+        hoverlabel={"bgcolor": "#15130f", "font_color": "#f2eee6"},
+        xaxis={
+            "gridcolor": "#cbc3b6",
+            "zeroline": False,
+            "tickfont": {"color": "#69645b"},
+        },
+        yaxis={
+            "gridcolor": "#cbc3b6",
+            "zeroline": False,
+            "tickfont": {"color": "#69645b"},
+        },
+    )
+    return figure
+    
 def _plot_sahm_rule(sahm: pd.DataFrame) -> go.Figure:
     """Create the Irish Sahm Rule chart."""
     figure = go.Figure()
@@ -216,6 +236,7 @@ def _plot_sahm_rule(sahm: pd.DataFrame) -> go.Figure:
             y=sahm["sahm_indicator"],
             mode="lines",
             name="Irish Sahm indicator",
+            line={"color": "#15130f", "width": 2},
         )
     )
 
@@ -235,7 +256,7 @@ def _plot_sahm_rule(sahm: pd.DataFrame) -> go.Figure:
         hovermode="x unified",
     )
 
-    return figure
+    return _style_irish_chart(figure)
 
 def _plot_gdp_vs_mdd(
     gdp: pd.Series,
@@ -263,6 +284,7 @@ def _plot_gdp_vs_mdd(
             y=gdp_index,
             mode="lines",
             name="Headline GDP",
+            line={"color": "#15130f", "width": 2},
         )
     )
 
@@ -272,6 +294,7 @@ def _plot_gdp_vs_mdd(
             y=mdd_index,
             mode="lines",
             name="Modified Domestic Demand",
+            line={"color": "#3c7555", "width": 2},
         )
     )
 
@@ -282,7 +305,7 @@ def _plot_gdp_vs_mdd(
         hovermode="x unified",
     )
 
-    return figure
+    return _style_irish_chart(figure)
 
 def _plot_export_exposure(
     exposure: pd.DataFrame,
@@ -298,7 +321,7 @@ def _plot_export_exposure(
             y=exposure["US Share (%)"],
             mode="lines",
             name="Monthly US share",
-            line={"color": "lightblue"},
+            line={"color": "#d75f47", "width": 1.8},,
         )
     )
 
@@ -308,7 +331,7 @@ def _plot_export_exposure(
             y=exposure["12-month average (%)"],
             mode="lines",
             name="12-month average",
-            line={"color": "darkblue", "width": 3},
+            line={"color": "#15130f", "width": 3},,
         )
     )
 
@@ -318,11 +341,8 @@ def _plot_export_exposure(
             "x": 0,
             "xanchor": "left",
         },
-        template="plotly_dark",
         height=260 if compact else 420,
         margin={"l": 65, "r": 150, "t": 60, "b": 65},
-        paper_bgcolor="#080808",
-        plot_bgcolor="#080808",
         showlegend=True,
         xaxis_title="Date",
         yaxis_title="US share of Irish exports (%)",
@@ -337,7 +357,7 @@ def _plot_export_exposure(
         },
     )
 
-    return figure
+    return _style_irish_chart(figure)
 
 
 def _render_export_exposure_chart(
@@ -911,7 +931,7 @@ def render_detail(as_of: date) -> None:
                 yaxis_range=[0, 100],
                 hovermode="x unified",
             )
-
+            probability_figure = _style_irish_chart(probability_figure)
             st.plotly_chart(
                 probability_figure,
                 width="stretch",
