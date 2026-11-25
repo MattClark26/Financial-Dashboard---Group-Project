@@ -149,3 +149,29 @@ def test_composite_ignores_unavailable_panel() -> None:
 
 def test_composite_is_unavailable_when_all_panels_are_unavailable() -> None:
     assert calculate_composite({"bond": None, "irish": None}) is None
+
+def test_irish_lens_weights_all_three_components_equally() -> None:
+    result = irish_lens.score_irish_lens(
+        sahm_indicator=0.0,
+        export_share=30.0,
+        gdp_index=150.0,
+        mdd_index=100.0,
+    )
+
+    assert result["components"] == {
+        "irish_sahm": 0.0,
+        "us_export_share": 50.0,
+        "gdp_mdd_divergence": 100.0,
+    }
+    assert result["score"] == pytest.approx(50.0)
+
+
+def test_irish_lens_renormalizes_equal_weights_when_a_component_is_missing() -> None:
+    result = irish_lens.score_irish_lens(
+        sahm_indicator=None,
+        export_share=30.0,
+        gdp_index=150.0,
+        mdd_index=100.0,
+    )
+
+    assert result["score"] == pytest.approx(75.0)
