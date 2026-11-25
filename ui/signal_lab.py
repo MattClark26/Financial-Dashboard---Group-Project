@@ -127,7 +127,7 @@ def _terrain_figure(
             ],
             cmin=0,
             cmax=100,
-            opacity=0.72,
+            opacity=0.5,
             showscale=False,
             contours={"z": {"show": True, "usecolormap": False, "color": "#15130f", "width": 1}},
             hovertemplate="%{x|%d %b %Y}<br>%{y}<br>Stress %{z:.1f}/100<extra></extra>",

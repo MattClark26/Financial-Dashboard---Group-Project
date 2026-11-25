@@ -1,7 +1,7 @@
 import pandas as pd
 
 from panels.financial_stress.presentation import load_financial_stress_view
-from ui.signal_lab import build_strategy_lab, classify_recession_phases
+from ui.signal_lab import _terrain_figure, build_strategy_lab, classify_recession_phases
 
 
 def test_recession_phase_classification_marks_flanks() -> None:
@@ -33,3 +33,14 @@ def test_strategy_lab_returns_bounded_exposures_and_metrics() -> None:
         "Maximum drawdown",
         "Average exposure",
     }
+
+
+def test_terrain_uses_translucent_early_warning_colours() -> None:
+    view = load_financial_stress_view(pd.Timestamp("2026-11-24"))
+
+    surface = _terrain_figure(view).data[0]
+
+    assert surface.opacity == 0.5
+    assert surface.cmin == 0
+    assert surface.cmax == 100
+    assert (0.55, "#d75f47") in surface.colorscale
