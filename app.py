@@ -123,34 +123,37 @@ def render_workspace() -> None:
     )
 
     with st.container(key="signal_matrix"):
-        top_left, top_right = st.columns(2, gap=None)
-        with top_left:
+        left_signals, signal_lab, right_signals = st.columns(
+            [1, 1.18, 1],
+            gap=None,
+            vertical_alignment="top",
+        )
+
+        with left_signals:
             render_connected_panel(
                 PANEL_IDENTITIES[0],
                 bond_market,
                 as_of,
                 signal=bond_signal,
             )
-        with top_right:
-            render_connected_panel(
-                PANEL_IDENTITIES[1],
-                labour_market,
-                as_of,
-                signal=labour_signal,
-            )
-
-        with st.container(key="signal_lab_preview"):
-            render_signal_lab_preview(stress_view, on_open=open_signal_lab)
-
-        bottom_left, bottom_right = st.columns(2, gap=None)
-        with bottom_left:
             render_connected_panel(
                 PANEL_IDENTITIES[2],
                 financial_stress,
                 as_of,
                 view=stress_view,
             )
-        with bottom_right:
+
+        with signal_lab:
+            with st.container(key="signal_lab_preview"):
+                render_signal_lab_preview(stress_view, on_open=open_signal_lab)
+
+        with right_signals:
+            render_connected_panel(
+                PANEL_IDENTITIES[1],
+                labour_market,
+                as_of,
+                signal=labour_signal,
+            )
             render_connected_panel(
                 PANEL_IDENTITIES[3],
                 irish_lens,
