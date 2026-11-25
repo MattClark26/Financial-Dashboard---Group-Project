@@ -20,6 +20,7 @@ html, body, [class*="css"] {
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"] {
     background: var(--rr-paper);
+    overflow-x: clip;
 }
 
 [data-testid="stHeader"] {
@@ -48,6 +49,44 @@ button,
 [data-testid="stBaseButton-secondary"] {
     border-radius: 0 !important;
     box-shadow: none !important;
+}
+
+/* Shared actions use one deliberate, high-contrast treatment. */
+[class*="st-key-"][class*="_back"] button,
+.st-key-bond_market_open button,
+.st-key-labour_market_open button,
+.st-key-open_stress button,
+.st-key-open_irish button,
+.st-key-open_signal_lab_centre button,
+.st-key-open_data_connections button,
+.st-key-load_live_data button,
+[data-testid="stFormSubmitButton"] button {
+    min-height: 2.8rem;
+    padding: .65rem 1rem !important;
+    border: 1px solid var(--rr-ink) !important;
+    background: var(--rr-ink) !important;
+    color: var(--rr-paper) !important;
+    font: 650 .82rem var(--rr-sans) !important;
+    letter-spacing: .01em;
+    transition: background-color .16s ease, color .16s ease, transform .16s ease;
+}
+
+[class*="st-key-"][class*="_back"] button:hover,
+.st-key-bond_market_open button:hover,
+.st-key-labour_market_open button:hover,
+.st-key-open_stress button:hover,
+.st-key-open_irish button:hover,
+.st-key-open_signal_lab_centre button:hover,
+.st-key-open_data_connections button:hover,
+.st-key-load_live_data button:hover,
+[data-testid="stFormSubmitButton"] button:hover {
+    background: var(--rr-yellow) !important;
+    color: var(--rr-ink) !important;
+    transform: translateY(-1px);
+}
+
+[class*="st-key-"][class*="_back"] {
+    padding: .75rem clamp(1rem, 3vw, 3rem) 0;
 }
 
 button:focus-visible,
@@ -583,16 +622,6 @@ input:focus-visible {
     font-size: .95rem;
 }
 
-[class*="st-key-open_"] button,
-.st-key-back_to_dashboard button,
-.st-key-load_live_data button {
-    border: 0 !important;
-    border-bottom: 1px solid var(--rr-ink) !important;
-    background: transparent !important;
-    color: var(--rr-ink) !important;
-    font-weight: 650;
-}
-
 /* Financial stress detail */
 .rr-detail-hero {
     min-height: 19rem;
@@ -659,11 +688,31 @@ input:focus-visible {
 [data-testid="stTabs"] [role="tablist"] {
     overflow-x: auto;
     scrollbar-width: thin;
+    gap: 0;
+    border-top: 1px solid var(--rr-line-dark);
+    border-bottom: 1px solid var(--rr-ink);
+    background: var(--rr-paper-deep);
 }
 
 [data-testid="stTabs"] [role="tab"] {
     flex: 0 0 auto;
     white-space: nowrap;
+    min-height: 3.2rem;
+    padding: .8rem 1.1rem;
+    border-right: 1px solid var(--rr-line-dark);
+    color: var(--rr-muted) !important;
+    font: 600 .78rem var(--rr-mono);
+    letter-spacing: .035em;
+}
+
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+    background: var(--rr-yellow);
+    color: var(--rr-ink) !important;
+}
+
+[data-testid="stTabs"] [role="tab"] p {
+    color: inherit !important;
+    font: inherit !important;
 }
 
 @media (max-width: 1100px) {
