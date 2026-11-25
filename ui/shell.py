@@ -87,7 +87,3 @@ def render_composite(scores: Mapping[str, float | None]) -> None:
         </div>
         """
     )
-          <div class="rr-risk-track" style="--rr-score:{marker:.1f}%"><i></i></div>
-        </div>
-        """
-    )
