@@ -8,7 +8,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from ui.presentation import render_explanation_strip
+from ui.presentation import (
+    render_conclusion,
+    render_explanation_strip,
+    render_quality_grid,
+)
 
 from .data import SERIES_SPECS
 from .evaluation import BacktestResult, evaluate_alerts
@@ -279,17 +283,28 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
             for key, value in signal.components.items()
         )
         st.html(f'<div class="rr-metric-grid">{component_items}</div>')
-        st.info(state.note)
+        render_conclusion("DATA MODE", state.note)
 
     with backtest:
-        threshold = st.slider(
-            "Alert threshold",
-            min_value=50,
-            max_value=90,
-            value=67,
-            help="An alert must remain above this level for two consecutive weeks.",
-            key="stress_backtest_threshold",
+        st.html(
+            """
+            <section class="rr-tab-intro">
+              <span>HISTORICAL VALIDATION</span>
+              <h2>Did the signal warn before recessions?</h2>
+              <p>Move the threshold to test the trade-off between earlier warnings
+              and false alarms. An alert must persist for two completed weeks.</p>
+            </section>
+            """
         )
+        with st.container(key="stress_backtest_controls"):
+            threshold = st.slider(
+                "Alert threshold",
+                min_value=50,
+                max_value=90,
+                value=67,
+                help="An alert must remain above this level for two consecutive weeks.",
+                key="stress_backtest_threshold",
+            )
         result = evaluate_alerts(
             state.history["score"],
             state.recession_indicator,
@@ -300,11 +315,14 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
             if result.median_lead_weeks is not None
             else "No matched alert"
         )
-        metrics = st.columns(4)
-        metrics[0].metric("Recessions caught", f"{result.hits}/{len(result.recessions)}")
-        metrics[1].metric("False alarms", result.false_alarms)
-        metrics[2].metric("Alert precision", f"{result.precision:.0%}")
-        metrics[3].metric("Median warning", lead)
+        render_quality_grid(
+            (
+                (f"{result.hits}/{len(result.recessions)}", "Recessions caught"),
+                (str(result.false_alarms), "False alarms"),
+                (f"{result.precision:.0%}", "Alert precision"),
+                (lead, "Median warning"),
+            )
+        )
         st.plotly_chart(
             _backtest_figure(state, result),
             width="stretch",
@@ -312,19 +330,29 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
             config={"displayModeBar": False, "responsive": True},
             key="stress_backtest_chart",
         )
-        st.caption(
-            "Red bands mark recession episodes. Results are descriptive historical "
-            "evidence, not a claim that financial stress causes recessions."
+        render_conclusion(
+            "READ WITH CAUTION",
+            "Red bands mark recession episodes. Results are descriptive historical evidence, not a claim that financial stress causes recessions.",
         )
 
     with sensitivity:
-        st.subheader("Does the conclusion depend on one weighting choice?")
-        preset = st.radio(
-            "Weighting scenario",
-            ["Baseline", "Equal weights", "Credit-heavy"],
-            horizontal=True,
-            key="stress_weighting_scenario",
+        st.html(
+            """
+            <section class="rr-tab-intro">
+              <span>ROBUSTNESS CHECK</span>
+              <h2>Does one weighting choice change the conclusion?</h2>
+              <p>Compare the documented baseline with equal and credit-heavy
+              alternatives. A robust signal should keep the same broad category.</p>
+            </section>
+            """
         )
+        with st.container(key="stress_sensitivity_controls"):
+            preset = st.radio(
+                "Weighting scenario",
+                ["Baseline", "Equal weights", "Credit-heavy"],
+                horizontal=True,
+                key="stress_weighting_scenario",
+            )
         scenarios = {
             "Baseline": dict(COMPONENT_WEIGHTS),
             "Equal weights": {key: 0.20 for key in COMPONENT_COLUMNS},
@@ -340,26 +368,44 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         scenario_history = score_history(state.analytics, weights=scenario_weights)
         latest_scenario = float(scenario_history["score"].dropna().iloc[-1])
         difference = latest_scenario - signal.score
-        columns = st.columns(3)
-        columns[0].metric("Scenario score", f"{latest_scenario:.1f} / 100")
-        columns[1].metric("Baseline score", f"{signal.score:.1f} / 100")
-        columns[2].metric("Difference", f"{difference:+.1f} points")
-        st.dataframe(
-            pd.DataFrame(
-                {
-                    "Component": [key.replace("_", " ").upper() for key in scenario_weights],
-                    "Weight": [f"{value:.0%}" for value in scenario_weights.values()],
-                }
-            ),
-            hide_index=True,
-            width="stretch",
+        render_quality_grid(
+            (
+                (f"{latest_scenario:.1f}", "Scenario score / 100"),
+                (f"{signal.score:.1f}", "Baseline score / 100"),
+                (f"{difference:+.1f}", "Difference in points"),
+                (signal.status, "Baseline category"),
+            )
         )
-        st.caption(
-            "A robust signal should not change category solely because of a reasonable "
-            "alternative weighting. This check changes weights only; it does not refit history."
+        weight_rows = "".join(
+            (
+                '<div class="rr-weight-row">'
+                f'<span>{key.replace("_", " ").upper()}</span>'
+                f'<b>{value:.0%}</b>'
+                '<i><em style="width:'
+                f'{value * 100:.0f}%"></em></i></div>'
+            )
+            for key, value in scenario_weights.items()
+        )
+        st.html(
+            '<section class="rr-weight-panel"><header><span>COMPONENT</span>'
+            f'<span>{preset.upper()} WEIGHT</span></header>{weight_rows}</section>'
+        )
+        render_conclusion(
+            "INTERPRETATION",
+            "This check changes weights only; it does not refit history. A small score difference supports the conclusion that no single reasonable weighting choice drives the result.",
         )
 
     with method:
+        st.html(
+            """
+            <section class="rr-tab-intro">
+              <span>REPRODUCIBLE PIPELINE</span>
+              <h2>From market observations to one stress score</h2>
+              <p>Every transformation is dated, causal and documented so another
+              analyst can rebuild the same selected-date result.</p>
+            </section>
+            """
+        )
         st.html(
             """
             <div class="rr-method-grid">
@@ -384,17 +430,36 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
             </div>
             """
         )
-        st.code(
-            "score = weighted_mean(clip(50 + component_z × 50/3, 0, 100))",
-            language="python",
+        st.html(
+            """
+            <div class="rr-formula-panel">
+              <span>SCORING CONTRACT</span>
+              <code>score = weighted_mean(clip(50 + component_z × 50/3, 0, 100))</code>
+              <p>A z-score of zero maps to 50. Positive values increase stress;
+              negative values reduce it. Every component is bounded before weighting.</p>
+            </div>
+            """
         )
 
     with sources:
-        quality_columns = st.columns(4)
-        quality_columns[0].metric("Data quality", state.quality.label)
-        quality_columns[1].metric("Series available", f"{state.quality.available_series}/6")
-        quality_columns[2].metric("Coverage", f"{state.quality.coverage_percent:.0f}%")
-        quality_columns[3].metric("Maximum lag", f"{state.quality.maximum_lag_days} days")
+        st.html(
+            """
+            <section class="rr-tab-intro">
+              <span>PROVENANCE + EXPORT</span>
+              <h2>Trace every signal back to its source</h2>
+              <p>Identifiers, frequencies and dated evidence remain visible so the
+              panel can be audited without relying on the interface alone.</p>
+            </section>
+            """
+        )
+        render_quality_grid(
+            (
+                (state.quality.label, "Data quality"),
+                (f"{state.quality.available_series}/6", "Series available"),
+                (f"{state.quality.coverage_percent:.0f}%", "Coverage"),
+                (f"{state.quality.maximum_lag_days} days", "Maximum lag"),
+            )
+        )
         source_rows = [
             {
                 "Measure": spec.label,
@@ -415,9 +480,9 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
                 "Source": st.column_config.LinkColumn("Source"),
             },
         )
-        st.caption(
-            "Runtime cache files are used when a public endpoint is temporarily "
-            "unavailable. The selected date is enforced before transformation."
+        render_conclusion(
+            "AS-OF DISCIPLINE",
+            "Runtime cache files are used when a public endpoint is temporarily unavailable. The selected date is enforced before transformation.",
         )
         audit = _audit_table(state)
         st.download_button(
@@ -427,7 +492,7 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
             mime="text/csv",
             key="stress_download_evidence",
         )
-        st.caption(
-            "The export includes raw inputs, causal z-scores, component scores, "
-            "the composite score, alert breadth and recession reference labels."
+        render_conclusion(
+            "WHAT THE EXPORT CONTAINS",
+            "Raw inputs, causal z-scores, component scores, the composite score, alert breadth and recession reference labels.",
         )

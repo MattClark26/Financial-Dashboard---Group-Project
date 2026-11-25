@@ -834,6 +834,188 @@ input:focus-visible {
     color: var(--rr-ink);
 }
 
+/* Inner analysis pages */
+.rr-tab-intro {
+    display: grid;
+    gap: .65rem;
+    padding: clamp(2rem, 4vw, 4rem) clamp(1.2rem, 5vw, 5.5rem) 1.5rem;
+    border-bottom: 1px solid var(--rr-line-dark);
+}
+
+.rr-tab-intro span,
+.rr-formula-panel > span,
+.rr-weight-panel header {
+    color: var(--rr-muted);
+    font: 600 .75rem var(--rr-mono);
+    letter-spacing: .09em;
+}
+
+.rr-tab-intro h2 {
+    max-width: 20ch;
+    margin: 0;
+    color: var(--rr-ink);
+    font: 560 clamp(2rem, 4.5vw, 4.6rem)/.96 var(--rr-sans);
+    letter-spacing: -.055em;
+}
+
+.rr-tab-intro p {
+    max-width: 62ch;
+    margin: 0;
+    color: var(--rr-muted);
+    font-size: 1.05rem;
+    line-height: 1.55;
+}
+
+.st-key-stress_backtest_controls,
+.st-key-stress_sensitivity_controls {
+    margin: 1.25rem clamp(1.2rem, 5vw, 5.5rem);
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--rr-line-dark);
+    background: var(--rr-paper-deep);
+}
+
+[data-testid="stRadio"] > label,
+[data-testid="stSlider"] > label {
+    color: var(--rr-muted) !important;
+    font: 600 .75rem var(--rr-mono) !important;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+[data-testid="stRadio"] [role="radiogroup"] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: .55rem;
+}
+
+[data-testid="stRadio"] [role="radiogroup"] label {
+    min-height: 2.65rem;
+    margin: 0;
+    padding: .55rem .85rem;
+    border: 1px solid var(--rr-line-dark);
+    background: var(--rr-paper);
+}
+
+[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
+    border-color: var(--rr-ink);
+    background: var(--rr-yellow);
+}
+
+[data-testid="stMetric"] {
+    min-height: 7rem;
+    padding: 1rem;
+    border: 1px solid var(--rr-line-dark);
+    background: var(--rr-paper-deep);
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--rr-muted);
+    font: 600 .72rem var(--rr-mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+[data-testid="stMetricValue"] {
+    color: var(--rr-ink);
+    font: 540 clamp(1.5rem, 2.6vw, 2.5rem) var(--rr-sans);
+    letter-spacing: -.04em;
+}
+
+[data-testid="stDataFrame"] {
+    margin: 1rem 0;
+    border: 1px solid var(--rr-line-dark);
+    background: var(--rr-paper);
+}
+
+[data-testid="stAlert"] {
+    border: 1px solid var(--rr-line-dark);
+    border-left: .35rem solid var(--rr-yellow);
+    border-radius: 0;
+    background: var(--rr-paper-deep);
+    color: var(--rr-ink);
+}
+
+.rr-weight-panel {
+    margin: 1.25rem clamp(1.2rem, 5vw, 5.5rem);
+    border: 1px solid var(--rr-line-dark);
+}
+
+.rr-weight-panel header,
+.rr-weight-row {
+    display: grid;
+    grid-template-columns: minmax(9rem, 1fr) auto minmax(10rem, 2fr);
+    align-items: center;
+    gap: 1.2rem;
+    padding: .85rem 1rem;
+}
+
+.rr-weight-panel header {
+    grid-template-columns: 1fr auto;
+    background: var(--rr-paper-deep);
+    border-bottom: 1px solid var(--rr-line-dark);
+}
+
+.rr-weight-row + .rr-weight-row {
+    border-top: 1px solid var(--rr-line);
+}
+
+.rr-weight-row span {
+    font: 600 .78rem var(--rr-mono);
+    letter-spacing: .04em;
+}
+
+.rr-weight-row b {
+    font: 550 1.15rem var(--rr-sans);
+}
+
+.rr-weight-row i {
+    height: .4rem;
+    background: var(--rr-line);
+}
+
+.rr-weight-row em {
+    display: block;
+    height: 100%;
+    background: var(--rr-red);
+}
+
+.rr-formula-panel {
+    display: grid;
+    gap: 1rem;
+    margin: 1.5rem clamp(1.2rem, 5vw, 5.5rem);
+    padding: clamp(1.3rem, 3vw, 2.4rem);
+    border: 1px solid var(--rr-ink);
+    background: var(--rr-ink);
+    color: var(--rr-paper);
+}
+
+.rr-formula-panel code {
+    overflow-wrap: anywhere;
+    color: var(--rr-yellow);
+    font: 500 clamp(1rem, 2vw, 1.45rem)/1.5 var(--rr-mono);
+}
+
+.rr-formula-panel p {
+    max-width: 68ch;
+    margin: 0;
+    color: var(--rr-paper-deep);
+    line-height: 1.55;
+}
+
+[data-testid="stDownloadButton"] button {
+    min-height: 2.8rem;
+    border: 1px solid var(--rr-ink) !important;
+    background: var(--rr-ink) !important;
+    color: var(--rr-paper) !important;
+    font-weight: 650;
+}
+
+[data-testid="stDownloadButton"] button:hover {
+    background: var(--rr-yellow) !important;
+    color: var(--rr-ink) !important;
+}
+
 /* eROdo-inspired cursor nodes injected into the parent document. */
 .rr-cur {
     position: fixed;
@@ -917,6 +1099,9 @@ input:focus-visible {
     .rr-explanation-strip, .rr-quality-grid { grid-template-columns: 1fr; }
     .rr-explanation-strip article + article,
     .rr-quality-grid div + div { border-left: 0; border-top: 1px solid var(--rr-line-dark); }
+    .rr-weight-panel header,
+    .rr-weight-row { grid-template-columns: 1fr auto; }
+    .rr-weight-row i { grid-column: 1 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
