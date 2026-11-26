@@ -1,9 +1,12 @@
-"""Bond-market signal using committed FRED data and model output."""
+"""Bond-market charts with a 70/30, sigmoid-smoothed warning index."""
 
 from __future__ import annotations
 
 from datetime import date
+from io import BytesIO
+from math import exp
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -25,6 +28,48 @@ TITLE = "Bond market"
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 PROBABILITY_CACHE = DATA_DIR / "us_recession_probability.csv"
 MODEL_COMPARISON_CACHE = DATA_DIR.parent / "baa_model_comparison_probabilities.csv"
+
+
+# Live FRED data and offline CSV fallback
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _load_market_series(series_id: str) -> tuple[pd.Series, str]:
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+    source = "LIVE FRED"
+
+    try:
+        request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urlopen(request, timeout=5) as response:
+            frame = pd.read_csv(
+                BytesIO(response.read()),
+                index_col=0,
+                parse_dates=True,
+                na_values=".",
+            )
+        if series_id not in frame.columns or pd.to_numeric(
+            frame[series_id], errors="coerce"
+        ).dropna().empty:
+            raise ValueError(f"FRED returned no usable {series_id} observations")
+    except Exception:
+        source = "CACHED CSV"
+        backup = DATA_DIR / f"{series_id}.csv"
+        if not backup.exists():
+            return pd.Series(dtype="float64", name=series_id), "UNAVAILABLE"
+        frame = pd.read_csv(
+            backup, index_col=0, parse_dates=True, na_values="."
+        )
+        if series_id not in frame.columns:
+            return pd.Series(dtype="float64", name=series_id), "UNAVAILABLE"
+
+    frame.index = pd.to_datetime(frame.index, errors="coerce")
+    frame = frame.loc[frame.index.notna()]
+    values = pd.to_numeric(frame[series_id], errors="coerce").dropna()
+    values = values.sort_index()
+    values = values[~values.index.duplicated(keep="last")]
+    values.name = series_id
+    if values.empty:
+        return values, "UNAVAILABLE"
+    return values, source
 
 
 def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
@@ -51,23 +96,110 @@ def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
     )
 
 
-def load_bond_market_signal(as_of: object) -> dict:
-    """Expose the cached recession probability through the shared contract."""
-    probability = load_recession_probability(pd.Timestamp(as_of))
-    if probability.empty:
-        return {
-            "score": 50.0,
-            "status": "WATCH",
-            "verdict": "Bond-market probability is unavailable, so this panel is neutral.",
-        }
+def _smoothed_warning_score(percentile: float) -> float:
+    """Gently squash a 0–100 percentile into about 12–88 with a sigmoid.
 
-    score = float(probability.iloc[-1])
+    This is a display/index transformation, not a forecast probability.
+    It remains monotonic: higher percentiles always produce higher scores.
+    """
+    return 100.0 / (1.0 + exp(-(percentile - 50.0) / 25.0))
+
+
+def _completed_month(as_of: object) -> pd.Period:
+    """Use fully completed calendar months for comparisons (avoid partial months)."""
+    selected = pd.Timestamp(as_of)
+    if selected.is_month_end:
+        return selected.to_period("M")
+    return (selected - pd.offsets.MonthEnd(1)).to_period("M")
+
+
+def _historical_percentile(values: pd.Series) -> float:
+    """Historical midrank of the latest value, on a 0-100 scale.
+
+    Half the tied observations count as below the latest observation.
+    This matches the percentile method used in the original 70/30 index.
+    """
+    latest = float(values.iloc[-1])
+    below = int((values < latest).sum())
+    tied = int((values == latest).sum())
+    return 100.0 * (below + 0.5 * tied) / len(values)
+
+
+def _no_score(reason: str, probability: float | None = None) -> dict:
+    """Keep the shared dashboard API numeric if the 70/30 inputs are missing."""
+    return {
+        "score": 50.0,
+        "status": "WATCH",
+        "probability": probability,
+        "percentile": None,
+        "yield_percentile": None,
+        "credit_percentile": None,
+        "credit_spread": None,
+        "observations": 0,
+        "score_month": None,
+        "verdict": f"70/30 warning index unavailable ({reason}); neutral placeholder shown.",
+    }
+
+
+def load_bond_market_signal(as_of: object) -> dict:
+    """Return the 70% Baseline + 30% Baa percentile index, then sigmoid-smooth it.
+
+    Baseline component: saved 12-month-ahead recession probabilities.
+    Baa component: historical percentile of monthly-average BAA10Y credit spread.
+    A positive-slope standalone Baa Probit nowcast ranks months in exactly
+    the same order as the underlying spread, so its percentile is equivalent.
+    Both components use only their *overlapping months* up to the Time Machine
+    cutoff. The stored Baseline probabilities are retrospective model outputs.
+    """
+    selected_date = pd.Timestamp(as_of)
+    probabilities = load_recession_probability(selected_date)
+    if probabilities.empty:
+        return _no_score("Baseline probability CSV missing or empty")
+
+    baseline = pd.Series(
+        probabilities.to_numpy(dtype="float64"),
+        index=probabilities.index.to_period("M"),
+        name="baseline_probability",
+    )
+    baseline = baseline[~baseline.index.duplicated(keep="last")].sort_index()
+
+    credit_daily, _ = _load_market_series("BAA10Y")
+    if credit_daily.empty:
+        return _no_score("BAA10Y could not be loaded", float(probabilities.iloc[-1]))
+    credit_daily = credit_daily.loc[credit_daily.index <= selected_date]
+    if credit_daily.empty:
+        return _no_score("no Baa observations before the selected date", float(probabilities.iloc[-1]))
+
+    credit_monthly = credit_daily.resample("ME").mean().dropna()
+    credit_monthly.index = credit_monthly.index.to_period("M")
+    credit_monthly.name = "baa_credit_spread"
+
+    common = pd.concat([baseline, credit_monthly], axis=1, join="inner").dropna()
+    common = common.loc[common.index <= _completed_month(selected_date)].sort_index()
+    if len(common) < 24:
+        return _no_score("fewer than 24 shared completed months", float(probabilities.iloc[-1]))
+
+    treasury_percentile = _historical_percentile(common["baseline_probability"])
+    credit_percentile = _historical_percentile(common["baa_credit_spread"])
+    weighted_percentile = 0.70 * treasury_percentile + 0.30 * credit_percentile
+    score = _smoothed_warning_score(weighted_percentile)
     status = "ALERT" if score >= 67 else "WATCH" if score >= 34 else "CALM"
+
+    probability = float(common["baseline_probability"].iloc[-1])
     return {
         "score": score,
         "status": status,
+        "probability": probability,
+        "percentile": weighted_percentile,
+        "yield_percentile": treasury_percentile,
+        "credit_percentile": credit_percentile,
+        "credit_spread": float(common["baa_credit_spread"].iloc[-1]),
+        "observations": len(common),
+        "score_month": common.index[-1].strftime("%b %Y"),
         "verdict": (
-            f"The latest cached model assigns a {score:.1f}% US recession probability."
+            f"Baseline recession probability: {probability:.1f}%. "
+            f"70/30 yield + credit warning score: {score:.0f}/100 "
+            "(sigmoid-smoothed, not a probability)."
         ),
     }
 
@@ -79,15 +211,16 @@ def _open_detail() -> None:
 def render(as_of: date, *, signal: dict | None = None) -> dict:
     """Render the compact dashboard card."""
     signal = signal or load_bond_market_signal(as_of)
+    _, treasury_source = _load_market_series("T10Y3M")
     st.html(
         f"""
         <div class="rr-panel-body">
           <div class="rr-panel-title-row">
             <div>
               <h2 class="rr-panel-title">Bond Market Signal</h2>
-              <p class="rr-panel-summary">Shows whether Treasury yield-curve
-              inversions are warning that borrowing conditions may precede a
-              US recession.</p>
+              <p class="rr-panel-summary">Combines historical Treasury
+              recession-probability warnings (70%) and Baa credit stress (30%).
+              A sigmoid softens the score's extremes.</p>
               <p class="rr-panel-verdict">{signal["verdict"]}</p>
             </div>
             <div class="rr-score"><strong>{signal["score"]:.0f}</strong>
@@ -96,8 +229,8 @@ def render(as_of: date, *, signal: dict | None = None) -> dict:
         </div>
         <div class="rr-metric-grid">
           <div class="rr-metric"><span>TIME MACHINE</span><strong>{as_of:%b %Y}</strong></div>
-          <div class="rr-metric"><span>SPREADS</span><strong>TREASURY / BAA CREDIT</strong></div>
-          <div class="rr-metric"><span>DATA MODE</span><strong>CACHED FRED</strong></div>
+          <div class="rr-metric"><span>SCORE BASIS</span><strong>70/30 + SIGMOID</strong></div>
+          <div class="rr-metric"><span>TREASURY DATA</span><strong>{treasury_source}</strong></div>
         </div>
         """
     )
@@ -111,22 +244,13 @@ def render(as_of: date, *, signal: dict | None = None) -> dict:
 
 
 def _load_spread(series_id: str, as_of: pd.Timestamp) -> pd.Series:
-    frame = pd.read_csv(
-        DATA_DIR / f"{series_id}.csv",
-        index_col=0,
-        parse_dates=True,
-        na_values=".",
-    )
-    values = pd.to_numeric(frame[series_id], errors="coerce").dropna()
-    values = values[values.index <= as_of].sort_index()
-    values.name = series_id
-    return values
+    values, _ = _load_market_series(series_id)
+    return values.loc[values.index <= as_of]
 
 
 def _load_recessions(as_of: pd.Timestamp) -> pd.Series:
-    frame = pd.read_csv(DATA_DIR / "USREC.csv", index_col=0, parse_dates=True)
-    values = pd.to_numeric(frame["USREC"], errors="coerce").dropna()
-    return values[values.index <= as_of].sort_index()
+    values, _ = _load_market_series("USREC")
+    return values.loc[values.index <= as_of]
 
 
 def _recession_periods(values: pd.Series) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
@@ -213,6 +337,8 @@ def _load_model_comparison(as_of: pd.Timestamp) -> pd.DataFrame:
 
 
 def _baseline_correlation(as_of: pd.Timestamp) -> float | None:
+    if not PROBABILITY_CACHE.exists():
+        return None
     frame = pd.read_csv(PROBABILITY_CACHE)
     frame["Date"] = pd.to_datetime(frame["Date"], errors="coerce")
     frame["Recession Probability (%)"] = pd.to_numeric(
@@ -247,8 +373,8 @@ def render_full(as_of: date) -> None:
         kicker="PANEL 01 / TERM STRUCTURE / LUKE O'BRIEN PETERSON",
         title="Bond Market Signal",
         lede=(
-            "Treasury yield-curve inversions and estimated US recession "
-            "probability twelve months ahead."
+            "A 70/30 historical warning index combining Treasury recession risk "
+            "and Baa credit stress, gently compressed with a sigmoid."
         ),
         score=signal["score"],
         status=signal["status"],
@@ -298,6 +424,9 @@ def render_full(as_of: date) -> None:
                     theme=None,
                     config={"displayModeBar": False, "responsive": True},
                 )
+                chart_series = "T10Y3M" if spread_choice == "10Y-3M" else "T10Y2Y"
+                _, chart_source = _load_market_series(chart_series)
+                st.caption(f"Chart data: {chart_source} · online downloads cached for 30 minutes")
                 latest = float(values.iloc[-1])
                 render_conclusion(
                     "YIELD CURVE INVERTED" if latest < 0 else "YIELD CURVE NOT INVERTED",
@@ -306,21 +435,51 @@ def render_full(as_of: date) -> None:
 
     with baseline_tab:
         correlation = _baseline_correlation(selected_date)
+        baseline_probability = signal.get("probability")
+        probability_label = (
+            f"{baseline_probability:.1f}%"
+            if baseline_probability is not None else "N/A"
+        )
         render_quality_grid(
             (
-                (f'{signal["score"]:.1f}%', "Estimated probability"),
+                (probability_label, "Estimated probability"),
+                (f'{signal["score"]:.0f}/100', "70/30 smoothed warning score"),
                 (
                     f"{correlation:.3f}" if correlation is not None else "N/A",
                     "Outcome correlation",
                 ),
                 ("12 months", "Forecast horizon"),
-                ("FRED cache", "Data source"),
             )
         )
+        treasury_pct = signal.get("yield_percentile")
+        credit_pct = signal.get("credit_percentile")
+        combined_pct = signal.get("percentile")
+        if combined_pct is None:
+            st.info("The 70/30 index needs overlapping Baseline and Baa historical data.")
+        else:
+            st.write(
+                f"Historical Treasury percentile: **{treasury_pct:.1f}/100 (70% weight)**. "
+                f"Baa credit-stress percentile: **{credit_pct:.1f}/100 (30% weight)**. "
+                f"Combined raw percentile: **{combined_pct:.1f}/100**. "
+                f"Observation: **{signal['score_month']}**, compared with "
+                f"**{signal['observations']}** shared completed months."
+            )
         st.write(
-            "The baseline model uses the 10-year minus 3-month Treasury spread. "
-            "Its committed output table pairs each dated probability with the later "
-            "recession outcome where that outcome is already observable."
+            "The Baseline model uses the 10-year minus 3-month Treasury spread "
+            "to estimate recession status exactly 12 months later. "
+            "The 70/30 warning index combines (1) the historical percentile of "
+            "that saved Baseline probability and (2) the historical percentile "
+            "of the monthly Moody's Baa credit spread, compared over the same "
+            "available months up to the selected Time Machine date. The Baa "
+            "percentile has the same historical ranking as a standalone Baa "
+            "same-month Probit nowcast when its fitted slope is positive. "
+            "A gentle sigmoid then compresses the combined percentile: "
+            "extremes become approximately 12/100 and 88/100, rather than "
+            "0 and 100. The 70/30 weights are illustrative, not calibrated. "
+            "This is a warning index, not a recession probability. "
+            "The saved Baseline probabilities use retrospective, full-history "
+            "model estimates, so past Time Machine scores are not genuine "
+            "historical real-time forecasts."
         )
         probability = load_recession_probability(selected_date)
         if not probability.empty:
@@ -332,10 +491,8 @@ def render_full(as_of: date) -> None:
                 line={"color": INK, "width": 2},
                 hovertemplate="%{x|%b %Y}<br>%{y:.1f}%<extra></extra>",
             )
-            probability_figure.add_hline(y=34, line_color=MUTED, line_dash="dot")
-            probability_figure.add_hline(y=67, line_color=RED, line_dash="dash")
             probability_figure.update_layout(
-                title="Estimated US recession probability within twelve months",
+                title="Estimated probability of recession exactly twelve months later",
                 height=430,
                 xaxis_title=None,
                 yaxis_title="Probability (%)",
@@ -365,8 +522,8 @@ def render_full(as_of: date) -> None:
             (
                 ("INPUT 01", "10Y-3M spread", "The selected date's latest available term spread."),
                 ("INPUT 02", "Recent persistence", "Counts inverted monthly averages during the preceding year."),
-                ("INPUT 03", "Baa credit spread", "Tests whether corporate borrowing stress confirms the Treasury warning."),
-                ("OUTPUT", "Recession probability", "The cached models estimate recession risk twelve months ahead."),
+                ("INPUT 03", "Baa credit spread", "Its historical percentile supplies 30% of the warning index."),
+                ("OUTPUT", "Smoothed warning index", "70% Baseline rank + 30% Baa rank, then sigmoid; not a probability."),
             )
         )
 
@@ -387,18 +544,25 @@ def render_full(as_of: date) -> None:
                 ),
                 (
                     f"{latest_model:.1f}%" if latest_model is not None else "N/A",
-                    "Baa model probability",
+                    "Saved combined-model probability",
                 ),
                 ("12 months", "Forecast horizon"),
-                ("FRED BAA10Y", "Committed source"),
+                ("FRED / CSV backup", "Chart source"),
             )
         )
         st.write(
             "Baa-rated corporate bonds carry more default and liquidity risk than "
             "Treasuries. A widening Baa minus Treasury spread means investors demand "
-            "more compensation to lend to riskier firms. This collaborator model adds "
-            "that credit-spread evidence to the yield curve and its recent persistence."
+            "more compensation to lend to riskier firms. This saved comparison "
+            "model combines credit-spread evidence with the yield curve and its "
+            "recent persistence; it is separate from the warning-score calculation."
         )
+        credit_pct = signal.get("credit_percentile")
+        if credit_pct is not None:
+            st.caption(
+                f"Warning-index credit component: {credit_pct:.1f}/100 historical "
+                "Baa spread percentile, weighted at 30% before sigmoid smoothing."
+            )
         if credit_spread.empty:
             st.info("No Baa credit-spread observations are available for this date.")
         else:
@@ -408,6 +572,8 @@ def render_full(as_of: date) -> None:
                 theme=None,
                 config={"displayModeBar": False, "responsive": True},
             )
+            _, credit_source = _load_market_series("BAA10Y")
+            st.caption(f"Chart data: {credit_source} · online downloads cached for 30 minutes")
         if not comparison.empty:
             probability_columns = [
                 "Baseline probability (%)",
