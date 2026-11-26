@@ -1,11 +1,13 @@
-"""Bond-market charts with a 70/30, sigmoid-smoothed warning index."""
+"""Bond-market charts with official FRED API data and 70/30 sigmoid scoring."""
 
 from __future__ import annotations
 
 from datetime import date
-from io import BytesIO
+import json
+import os
 from math import exp
 from pathlib import Path
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -30,46 +32,114 @@ PROBABILITY_CACHE = DATA_DIR / "us_recession_probability.csv"
 MODEL_COMPARISON_CACHE = DATA_DIR.parent / "baa_model_comparison_probabilities.csv"
 
 
-# Live FRED data and offline CSV fallback
+# Official FRED API with committed local-CSV backups.
+# The group dashboard calls activate_session_credentials() before loading panels.
+# It should expose the connected FRED key as FRED_API_KEY; we also support
+# Streamlit session state and secrets for independent panel testing.
+
+
+def _get_fred_api_key() -> str:
+    key = os.environ.get("FRED_API_KEY", "").strip()
+    if key:
+        return key
+
+    # Compatible with Streamlit applications that store the connection in a
+    # session instead of copying it to the process environment.
+    for session_name in ("fred_api_key", "FRED_API_KEY"):
+        try:
+            value = st.session_state.get(session_name)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        except Exception:
+            pass
+
+    # Optional local/deployment fallback. Never check in secrets.toml.
+    try:
+        value = st.secrets.get("FRED_API_KEY", "")
+        if isinstance(value, str):
+            return value.strip()
+    except Exception:
+        pass
+    return ""
+
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def _load_market_series(series_id: str) -> tuple[pd.Series, str]:
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    source = "LIVE FRED"
+def _download_fred_api_series(series_id: str, _api_key: str) -> pd.Series:
+    """Download a complete series from the official FRED observations API.
 
-    try:
-        request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(request, timeout=5) as response:
-            frame = pd.read_csv(
-                BytesIO(response.read()),
-                index_col=0,
-                parse_dates=True,
-                na_values=".",
-            )
-        if series_id not in frame.columns or pd.to_numeric(
-            frame[series_id], errors="coerce"
-        ).dropna().empty:
-            raise ValueError(f"FRED returned no usable {series_id} observations")
-    except Exception:
-        source = "CACHED CSV"
-        backup = DATA_DIR / f"{series_id}.csv"
-        if not backup.exists():
-            return pd.Series(dtype="float64", name=series_id), "UNAVAILABLE"
-        frame = pd.read_csv(
-            backup, index_col=0, parse_dates=True, na_values="."
-        )
-        if series_id not in frame.columns:
-            return pd.Series(dtype="float64", name=series_id), "UNAVAILABLE"
+    The leading underscore prevents Streamlit from placing the secret itself
+    into the cache-key calculation. All series are public economic data.
+    """
+    parameters = urlencode({
+        "series_id": series_id,
+        "api_key": _api_key,
+        "file_type": "json",
+        "sort_order": "asc",
+        "limit": 100000,
+    })
+    endpoint = "https://api.stlouisfed.org/fred/series/observations"
+    request = Request(
+        f"{endpoint}?{parameters}",
+        headers={"User-Agent": "RecessionRadarBondMarket/1.0", "Accept": "application/json"},
+    )
+    with urlopen(request, timeout=20) as response:
+        payload = json.load(response)
 
+    observations = payload.get("observations", [])
+    if not observations:
+        raise ValueError(f"No observations returned for {series_id}")
+
+    frame = pd.DataFrame(observations)
+    if "date" not in frame.columns or "value" not in frame.columns:
+        raise ValueError(f"Unexpected FRED API response for {series_id}")
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
+    frame = frame.dropna(subset=["date", "value"]).sort_values("date")
+    if frame.empty:
+        raise ValueError(f"No usable data returned for {series_id}")
+    series = pd.Series(
+        frame["value"].to_numpy(dtype="float64"),
+        index=pd.DatetimeIndex(frame["date"], name="DATE"),
+        name=series_id,
+    )
+    return series[~series.index.duplicated(keep="last")]
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _load_backup_csv(series_id: str) -> pd.Series:
+    backup = DATA_DIR / f"{series_id}.csv"
+    if not backup.exists():
+        return pd.Series(dtype="float64", name=series_id)
+
+    frame = pd.read_csv(backup, index_col=0, parse_dates=True, na_values=".")
+    if series_id not in frame.columns:
+        return pd.Series(dtype="float64", name=series_id)
     frame.index = pd.to_datetime(frame.index, errors="coerce")
-    frame = frame.loc[frame.index.notna()]
+    frame = frame.loc[frame.index.notna()].sort_index()
     values = pd.to_numeric(frame[series_id], errors="coerce").dropna()
-    values = values.sort_index()
     values = values[~values.index.duplicated(keep="last")]
     values.name = series_id
-    if values.empty:
-        return values, "UNAVAILABLE"
-    return values, source
+    return values
+
+
+def _load_market_series(series_id: str) -> tuple[pd.Series, str]:
+    """Try the authenticated FRED API, then the committed CSV backup."""
+    key = _get_fred_api_key()
+    fallback_label = "CACHED CSV (NO KEY)"
+
+    if key:
+        try:
+            values = _download_fred_api_series(series_id, key)
+            if not values.empty:
+                return values, "LIVE FRED API"
+        except Exception:
+            # A failed API request must not crash the rest of the dashboard.
+            # The short data-source label makes the reason visible in the UI.
+            fallback_label = "CACHED CSV (API FAILED)"
+    backup = _load_backup_csv(series_id)
+    if not backup.empty:
+        return backup, fallback_label
+    return pd.Series(dtype="float64", name=series_id), "UNAVAILABLE"
 
 
 def load_recession_probability(selected_date: pd.Timestamp) -> pd.Series:
@@ -426,7 +496,7 @@ def render_full(as_of: date) -> None:
                 )
                 chart_series = "T10Y3M" if spread_choice == "10Y-3M" else "T10Y2Y"
                 _, chart_source = _load_market_series(chart_series)
-                st.caption(f"Chart data: {chart_source} · online downloads cached for 30 minutes")
+                st.caption(f"Chart data: {chart_source} · API downloads cached for up to 30 minutes")
                 latest = float(values.iloc[-1])
                 render_conclusion(
                     "YIELD CURVE INVERTED" if latest < 0 else "YIELD CURVE NOT INVERTED",
@@ -547,7 +617,7 @@ def render_full(as_of: date) -> None:
                     "Saved combined-model probability",
                 ),
                 ("12 months", "Forecast horizon"),
-                ("FRED / CSV backup", "Chart source"),
+                ("FRED API / CSV backup", "Chart source"),
             )
         )
         st.write(
@@ -573,7 +643,7 @@ def render_full(as_of: date) -> None:
                 config={"displayModeBar": False, "responsive": True},
             )
             _, credit_source = _load_market_series("BAA10Y")
-            st.caption(f"Chart data: {credit_source} · online downloads cached for 30 minutes")
+            st.caption(f"Chart data: {credit_source} · API downloads cached for up to 30 minutes")
         if not comparison.empty:
             probability_columns = [
                 "Baseline probability (%)",
