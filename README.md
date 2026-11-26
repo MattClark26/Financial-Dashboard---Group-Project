@@ -109,15 +109,17 @@ copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and replace
 the placeholder; the real file is ignored by Git. Yahoo Finance and the CSO
 PxStat API do not require keys.
 
-The app opens with a short project briefing and then enters a full-screen signal
-matrix. The Bond Market and Labour Market panels form the top corners, Financial
-Stress and the Irish Lens form the bottom corners, and the compact 3D Signal Lab
-sits at the centre. Every area explains its purpose and provides a control to
-open the complete analysis. A shared time machine controls the historical cutoff
-for every panel, while the connected composite explicitly reports how many
-panels currently contribute to its reading.
+The app opens with a short project briefing and then enters a full-screen 2 by 2
+signal matrix. The Bond Market and Labour Market panels form the top row, while
+Financial Stress and the Irish Lens form the bottom row. The Financial Stress
+preview uses the interactive 3D Signal Lab terrain, and its full analysis places
+the complete terrain and strategy diagnostics in a dedicated tab. Every panel
+explains its purpose and provides a control to open the complete analysis. A
+shared time machine controls the historical cutoff for every panel, while the
+connected composite explicitly reports how many panels currently contribute to
+its reading.
 
-The shared **3D Signal Lab** adds a deeper layer at the centre of the four panels. Its
+The **3D Signal Lab** belongs to the Financial Stress panel. Its
 interactive surface shows the five Financial Stress channels together across
 time, with recession weeks coloured separately so broad stress peaks are easy
 to distinguish from isolated moves. The strategy view compares buy-and-hold,
@@ -187,7 +189,7 @@ collisions. Once a panel is ready, connect it in `app.py` and pass its standard
 | Shared or panel area | Current contribution |
 | --- | --- |
 | Intro, cursor, time machine and four-panel layout | Rohi Aluede |
-| Shared 3D Signal Lab, strategy diagnostics and responsive containment | Rohi Aluede |
+| Financial Stress 3D Signal Lab, strategy diagnostics and responsive containment | Rohi Aluede |
 | Financial Stress data, transformations, score and views | Rohi Aluede |
 | Bond Market analysis | Luke O'Brien Peterson |
 | Labour Market analysis | Tadhg Findon |

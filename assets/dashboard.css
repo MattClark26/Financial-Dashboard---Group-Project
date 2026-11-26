@@ -57,7 +57,6 @@ button,
 .st-key-labour_market_open button,
 .st-key-open_stress button,
 .st-key-open_irish button,
-.st-key-open_signal_lab_centre button,
 .st-key-open_data_connections button,
 .st-key-load_live_data button,
 [data-testid="stFormSubmitButton"] button {
@@ -76,7 +75,6 @@ button,
 .st-key-labour_market_open button:hover,
 .st-key-open_stress button:hover,
 .st-key-open_irish button:hover,
-.st-key-open_signal_lab_centre button:hover,
 .st-key-open_data_connections button:hover,
 .st-key-load_live_data button:hover,
 [data-testid="stFormSubmitButton"] button:hover {
@@ -427,42 +425,19 @@ input:focus-visible {
     flex-grow: 1;
 }
 
-.st-key-signal_lab_preview {
-    width: 100%;
-    height: 100%;
-    margin: 0 auto;
-    padding: clamp(1.2rem, 2vw, 2.1rem);
-    border: 1px solid var(--rr-ink);
-    background: var(--rr-paper-deep);
-}
-
-.st-key-signal_lab_preview [data-testid="stPlotlyChart"] {
-    min-height: 28rem;
-    border: 1px solid var(--rr-line-dark);
-}
-
-.st-key-signal_lab_preview h3 {
-    margin-bottom: .55rem;
-    font: 560 clamp(2.2rem, 4vw, 4.8rem)/.92 var(--rr-sans);
-    letter-spacing: -.055em;
-}
-
-.st-key-open_signal_lab_centre button {
-    border: 0 !important;
-    border-bottom: 1px solid var(--rr-ink) !important;
-    background: transparent !important;
-    color: var(--rr-ink) !important;
-    font-weight: 650;
-}
-
 .st-key-panel_bond,
 .st-key-panel_stress {
     border-right: 1px solid var(--rr-ink);
 }
 
-.st-key-panel_labour,
+.st-key-panel_stress,
 .st-key-panel_irish {
-    border-left: 1px solid var(--rr-ink);
+    border-bottom: 0;
+}
+
+.st-key-signal_lab_terrain_preview {
+    margin-top: .35rem;
+    border-block: 1px solid var(--rr-line-dark);
 }
 
 .rr-panel-shell {
@@ -1127,7 +1102,6 @@ input:focus-visible {
     .st-key-signal_matrix [data-testid="stColumn"] > div,
     .st-key-signal_matrix [data-testid="stColumn"] > div > [data-testid="stVerticalBlock"] { height: auto; }
     [class*="st-key-panel_"] { height: auto; min-height: 70vh; border-right: 0; border-left: 0; }
-    .st-key-signal_lab_preview { width: 100%; height: auto; border-right: 0; border-left: 0; }
     .rr-panel-title-row, .rr-detail-hero { grid-template-columns: 1fr; }
     .rr-score, .rr-detail-score { grid-row: 1; }
     .rr-method-grid { grid-template-columns: 1fr; }

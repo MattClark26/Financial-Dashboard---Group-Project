@@ -13,6 +13,7 @@ from ui.presentation import (
     render_explanation_strip,
     render_quality_grid,
 )
+from ui.signal_lab import render_signal_lab, render_signal_lab_preview
 
 from .data import SERIES_SPECS
 from .evaluation import BacktestResult, evaluate_alerts
@@ -101,13 +102,7 @@ def render_overview(
         for key, value in signal.components.items()
     )
     st.html(f'<div class="rr-component-bars">{component_bars}</div>')
-    st.plotly_chart(
-        _history_figure(state),
-        width="stretch",
-        theme=None,
-        config={"displayModeBar": False, "responsive": True},
-        key="stress_overview_history",
-    )
+    render_signal_lab_preview(state)
     latest = state.analytics.features.iloc[-1]
     latest_history = state.history.dropna(subset=["score"]).iloc[-1]
     st.html(
@@ -255,8 +250,8 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
             ),
         )
     )
-    overview, backtest, sensitivity, method, sources = st.tabs(
-        ["Overview", "Backtest", "Sensitivity", "Method", "Sources"]
+    overview, signal_lab, backtest, sensitivity, method, sources = st.tabs(
+        ["Overview", "3D Signal Lab", "Backtest", "Sensitivity", "Method", "Sources"]
     )
     with overview:
         st.html(
@@ -284,6 +279,9 @@ def render_detail(as_of: date, *, view: FinancialStressView) -> None:
         )
         st.html(f'<div class="rr-metric-grid">{component_items}</div>')
         render_conclusion("DATA MODE", state.note)
+
+    with signal_lab:
+        render_signal_lab(state)
 
     with backtest:
         st.html(

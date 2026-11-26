@@ -17,9 +17,9 @@ APP_PATH = Path(__file__).resolve().parents[1] / "app.py"
     [
         ("bond", 4, 2),
         ("labour", 6, 4),
-        ("stress", 5, 2),
+        ("stress", 6, 4),
         ("irish", 6, 4),
-        ("signal_lab", 0, 2),
+        ("signal_lab", 6, 4),
     ],
 )
 def test_analysis_route_renders(route: str, minimum_tabs: int, minimum_plots: int) -> None:

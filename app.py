@@ -12,16 +12,11 @@ from ui.intro import render_intro
 from ui.navigation import render_back_to_signals
 from ui.panels import PANEL_IDENTITIES, render_connected_panel
 from ui.presentation import configure_plotly_theme
-from ui.signal_lab import render_signal_lab, render_signal_lab_preview
 from ui.shell import render_composite, render_topbar
 
 
 def open_connections() -> None:
     st.session_state["active_panel"] = "connections"
-
-
-def open_signal_lab() -> None:
-    st.session_state["active_panel"] = "signal_lab"
 
 
 @st.cache_resource(ttl=900, show_spinner="Refreshing financial-market data...")
@@ -67,19 +62,13 @@ def render_workspace() -> None:
         connection_revision=int(st.session_state.get("data_connection_revision", 0)),
     )
 
-    if active_panel == "signal_lab":
-        scroll_to_top()
-        render_back_to_signals(key="signal_lab_back")
-        render_signal_lab(stress_view)
-        return
-
     if active_panel == "irish":
         scroll_to_top()
         render_back_to_signals(key="irish_lens_back")
         irish_lens.render_detail(default_date)
         return
 
-    if active_panel == "stress":
+    if active_panel in {"stress", "signal_lab"}:
         scroll_to_top()
         render_back_to_signals(key="financial_stress_back")
         financial_stress.render_detail(
@@ -123,37 +112,38 @@ def render_workspace() -> None:
     )
 
     with st.container(key="signal_matrix"):
-        left_signals, signal_lab, right_signals = st.columns(
-            [1, 1.18, 1],
+        bond_column, labour_column = st.columns(
+            2,
             gap=None,
             vertical_alignment="top",
         )
-
-        with left_signals:
+        with bond_column:
             render_connected_panel(
                 PANEL_IDENTITIES[0],
                 bond_market,
                 as_of,
                 signal=bond_signal,
             )
-            render_connected_panel(
-                PANEL_IDENTITIES[2],
-                financial_stress,
-                as_of,
-                view=stress_view,
-            )
-
-        with signal_lab:
-            with st.container(key="signal_lab_preview"):
-                render_signal_lab_preview(stress_view, on_open=open_signal_lab)
-
-        with right_signals:
+        with labour_column:
             render_connected_panel(
                 PANEL_IDENTITIES[1],
                 labour_market,
                 as_of,
                 signal=labour_signal,
             )
+        stress_column, irish_column = st.columns(
+            2,
+            gap=None,
+            vertical_alignment="top",
+        )
+        with stress_column:
+            render_connected_panel(
+                PANEL_IDENTITIES[2],
+                financial_stress,
+                as_of,
+                view=stress_view,
+            )
+        with irish_column:
             render_connected_panel(
                 PANEL_IDENTITIES[3],
                 irish_lens,

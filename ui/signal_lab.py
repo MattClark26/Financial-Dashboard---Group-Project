@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -106,6 +105,7 @@ def _terrain_figure(
     view: FinancialStressView,
     *,
     height: int = 650,
+    compact: bool = False,
 ) -> go.Figure:
     labels = ["IG OAS", "HY OAS", "VIX", "STLFSI", "Drawdown"]
     keys = ["ig_oas", "hy_oas", "vix", "stlfsi", "drawdown"]
@@ -138,11 +138,15 @@ def _terrain_figure(
         margin={"l": 0, "r": 0, "t": 10, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         scene={
-            "xaxis_title": "Historical week",
-            "yaxis_title": "Market channel",
-            "zaxis_title": "Stress score (0–100)",
+            "xaxis_title": "" if compact else "Historical week",
+            "yaxis_title": "" if compact else "Market channel",
+            "zaxis_title": "" if compact else "Stress score (0–100)",
             "zaxis": {"range": [0, 100]},
-            "camera": {"eye": {"x": 1.55, "y": 1.55, "z": 0.85}},
+            "camera": {
+                "eye": {"x": 1.35, "y": 1.35, "z": 0.8}
+                if compact
+                else {"x": 1.55, "y": 1.55, "z": 0.85}
+            },
             "bgcolor": "rgba(0,0,0,0)",
         },
     )
@@ -151,10 +155,8 @@ def _terrain_figure(
 
 def render_signal_lab_preview(
     view: FinancialStressView,
-    *,
-    on_open: Callable[[], None],
 ) -> None:
-    """Render a compact central terrain with a route to the full lab."""
+    """Render the Financial Stress terrain inside its four-panel preview."""
     signal = view.signal
     strongest_key, strongest_value = max(
         signal.components.items(),
@@ -169,32 +171,18 @@ def render_signal_lab_preview(
     }
     breadth = sum(value >= 67 for value in signal.components.values())
 
-    st.caption("CENTRE / INTERACTIVE 3D SIGNAL LAB")
-    st.subheader("See stress spread across markets")
-    st.write(
-        "The surface puts credit spreads, VIX, STLFSI and equity drawdown on "
-        "one 0 to 100 scale. A broad ridge across several rows is more meaningful "
-        "than one isolated spike. Red begins at 55 as an early visual warning; "
-        "the formal ALERT classification still begins at 67."
-    )
     st.plotly_chart(
-        _terrain_figure(view, height=460),
+        _terrain_figure(view, height=300, compact=True),
         width="stretch",
         theme=None,
         config={"displayModeBar": False, "responsive": True},
         key="signal_lab_terrain_preview",
     )
-    st.markdown(
-        f"**Current reading:** {signal.score:.0f}/100, **{signal.status}**. "
+    st.caption(
+        f"3D SIGNAL LAB · {signal.score:.0f}/100 · {signal.status}. "
         f"{breadth} of {len(signal.components)} channels are in ALERT. "
         f"The strongest channel is {names.get(strongest_key, strongest_key)} "
         f"at {strongest_value:.0f}/100."
-    )
-    st.button(
-        "See the full Signal Lab",
-        key="open_signal_lab_centre",
-        on_click=on_open,
-        width="stretch",
     )
 
 
@@ -247,10 +235,10 @@ def _phase_table(result: StrategyLabResult) -> pd.DataFrame:
 
 
 def render_signal_lab(view: FinancialStressView) -> None:
-    """Render the shared analytical lab."""
+    """Render the Financial Stress terrain and strategy diagnostics."""
     result = build_strategy_lab(view)
-    st.caption("SHARED SIGNAL LAB / FOUR-PANEL RECESSION RADAR")
-    st.title("Signal terrain & strategy diagnostics")
+    st.caption("PANEL 03 / FINANCIAL STRESS / 3D SIGNAL LAB")
+    st.subheader("Signal terrain & strategy diagnostics")
     st.write(
         "This lab turns the dashboard's market-stress history into a deeper visual "
         "diagnostic. It asks how the component z-scores behaved before, during and "
