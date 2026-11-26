@@ -1,4 +1,129 @@
-# Financial Dashboard 
+# Financial Dashboard
+
+## Start here: reproduce the project from a fresh clone
+
+These instructions run the same graded Streamlit application on Windows,
+macOS and Linux. The app is designed to start without API keys because the
+required fallback datasets are committed to the repository.
+
+### Before you begin
+
+Install both of the following:
+
+- [Git](https://git-scm.com/downloads)
+- A 64-bit version of [Python](https://www.python.org/downloads/) from 3.11 to
+  3.13. Python 3.13 is the recommended fresh installation.
+
+Do not install the project packages globally. Create the `.venv` environment
+shown below and run every command from the repository root. The final launch
+command deliberately uses `python -m streamlit`, which guarantees that
+Streamlit comes from the same environment as `pyjstat`, pandas and the other
+project dependencies.
+
+### Windows 10 or 11 using PowerShell
+
+```powershell
+git clone https://github.com/MattClark26/Financial-Dashboard---Group-Project.git
+cd Financial-Dashboard---Group-Project
+py -3.13 --version
+py -3.13 -m venv .venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python scripts/check_setup.py
+python -m streamlit run app.py
+```
+
+If Python 3.12 or 3.11 is already installed instead, replace `-3.13` in the
+first two Python commands with `-3.12` or `-3.11`.
+
+### macOS using Terminal
+
+```bash
+git clone https://github.com/MattClark26/Financial-Dashboard---Group-Project.git
+cd Financial-Dashboard---Group-Project
+python3 --version
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python scripts/check_setup.py
+python -m streamlit run app.py
+```
+
+### Linux using a terminal
+
+```bash
+git clone https://github.com/MattClark26/Financial-Dashboard---Group-Project.git
+cd Financial-Dashboard---Group-Project
+python3 --version
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python scripts/check_setup.py
+python -m streamlit run app.py
+```
+
+When setup succeeds, the checker prints `Setup check passed.` and Streamlit
+prints a local address, normally `http://localhost:8501`. Open that address and
+select **Enter the dashboard**. Keep the terminal open while using the app.
+Stop it with `Ctrl+C`.
+
+### Optional live-data setup
+
+No key is needed to reproduce the interface, explore every panel or run the
+tests. The default Financial Stress history is therefore clearly labelled
+**SIMULATED PREVIEW**, while the other panels can use their committed cache
+files if a provider is unavailable.
+
+To refresh Financial Stress from FRED and the public market feed, obtain a free
+[FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html), open
+**Data connections & API keys** in the dashboard, and enter it for the current
+session. Then open Financial Stress and select **Refresh live data**. The panel
+changes to **LIVE PUBLIC DATA** only after a successful load. Yahoo Finance and
+the CSO PxStat API do not need keys.
+
+For a reusable local key, create the ignored secrets file after activating the
+environment:
+
+```powershell
+# Windows PowerShell
+Copy-Item .streamlit\secrets.toml.example .streamlit\secrets.toml
+```
+
+```bash
+# macOS or Linux
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+```
+
+Replace the placeholder in `.streamlit/secrets.toml` with the real key. Never
+commit that file.
+
+### If setup does not pass
+
+| Problem | Exact fix |
+| --- | --- |
+| `ModuleNotFoundError`, including `No module named 'pyjstat'` | Activate `.venv`, run `python -m pip install -r requirements.txt`, then rerun `python scripts/check_setup.py`. |
+| PowerShell says script execution is disabled | Run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`, then activate `.venv` again. This applies only to the current PowerShell window. |
+| Linux says `ensurepip` or `venv` is unavailable | On Ubuntu or Debian run `sudo apt update && sudo apt install python3-venv`, then recreate `.venv`. |
+| `python` or `py` is not recognised | Install Python 3.11 to 3.13 and enable **Add Python to PATH** on Windows, then open a new terminal. |
+| `streamlit` is not recognised | Use the documented `python -m streamlit run app.py` command, not `streamlit run app.py`. |
+| Port 8501 is already in use | Run `python -m streamlit run app.py --server.port 8502` and open `http://localhost:8502`. |
+| A required CSV or interface file is missing | Run `git pull origin main`, then `python scripts/check_setup.py`. The checker identifies the missing file. |
+
+To verify the complete codebase after setup, run:
+
+```bash
+python scripts/check_setup.py
+python -m pytest -q
+```
+
+The setup checker validates the Python version, imports every direct runtime
+dependency, checks the committed data and configuration files, reads every
+cached CSV header and compiles the project packages before the dashboard is
+launched.
 
 | Name | Student Number |
 | ---- | -------------- |
@@ -76,38 +201,10 @@ dashboard can be deployed with the FRED API key stored in the host's secret mana
 
 ## Running the interface
 
-### Reliable setup from a fresh clone
-
-Use Python 3.11 or newer and run every command from the repository root. The
-commands below install every required package, verify that committed data and
-interface files are present, and then launch the graded Streamlit application.
-The direct package versions in `requirements.txt` are the versions verified by
-the clean-checkout procedure below, which prevents installations from changing
-unexpectedly between group members.
-
-```sh
-git clone https://github.com/MattClark26/Financial-Dashboard---Group-Project.git
-cd Financial-Dashboard---Group-Project
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python scripts/check_setup.py
-python -m streamlit run app.py
-```
-
-On Windows PowerShell, activate the environment with
-`.venv\Scripts\Activate.ps1`, then run the same `python -m pip`, setup-check and
-Streamlit commands. Using `python -m streamlit` ensures Streamlit runs from the
-same Python environment where the dependencies were installed.
-
-The dashboard runs from committed cache files without credentials. To refresh
-FRED and ALFRED data, open **Data connections & API keys** in the interface and
-paste a free FRED key for the current session. The key is masked, held only in
-process memory and never written to Git. For local or hosted configuration,
-copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and replace
-the placeholder; the real file is ignored by Git. Yahoo Finance and the CSO
-PxStat API do not require keys.
+Follow the operating-system instructions at the beginning of this README for a
+fresh installation. The dependency versions in `requirements.txt` are pinned
+for consistent marking and the dashboard runs from committed cache files when
+live providers are unavailable.
 
 The app opens with a short project briefing and then enters a full-screen 2 by 2
 signal matrix. The Bond Market and Labour Market panels form the top row, while
