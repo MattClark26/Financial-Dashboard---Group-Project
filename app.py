@@ -6,10 +6,10 @@ import pandas as pd
 
 from panels import bond_market, financial_stress, irish_lens, labour_market
 from ui.controls import render_time_machine
-from ui.connections import activate_session_credentials, render_connections
+from ui.connections import activate_session_credentials, has_fred_api_key, render_connections
 from ui.cursor import install_cursor, scroll_to_top
 from ui.intro import render_intro
-from ui.navigation import render_back_to_signals
+from ui.navigation import render_detail_topbar
 from ui.panels import PANEL_IDENTITIES, render_connected_panel
 from ui.presentation import configure_plotly_theme
 from ui.shell import render_composite, render_topbar
@@ -17,6 +17,20 @@ from ui.shell import render_composite, render_topbar
 
 def open_connections() -> None:
     st.session_state["active_panel"] = "connections"
+
+
+def refresh_financial_stress_data() -> None:
+    """Request a fresh live load, or route the user to the required FRED key."""
+    if not has_fred_api_key():
+        st.session_state["connection_notice"] = (
+            "Add a FRED API key before refreshing Financial Stress with live data."
+        )
+        st.session_state["active_panel"] = "connections"
+        return
+    st.session_state["financial_stress_live_enabled"] = True
+    st.session_state["data_connection_revision"] = (
+        int(st.session_state.get("data_connection_revision", 0)) + 1
+    )
 
 
 @st.cache_resource(ttl=900, show_spinner="Refreshing financial-market data...")
@@ -40,19 +54,32 @@ def render_workspace() -> None:
 
     if active_panel == "connections":
         scroll_to_top()
-        render_back_to_signals(key="connections_back")
+        render_detail_topbar(
+            key="connections_back",
+            panel_label="Data connections",
+            owner="Session settings",
+            status="API KEYS AND PUBLIC SOURCES",
+        )
         render_connections()
         return
 
     if active_panel == "bond":
         scroll_to_top()
-        render_back_to_signals(key="bond_market_back")
+        render_detail_topbar(
+            key="bond_market_back",
+            panel_label="Panel 01 / Bond market",
+            owner="Luke O'Brien Peterson",
+        )
         bond_market.render_full(default_date)
         return
 
     if active_panel == "labour":
         scroll_to_top()
-        render_back_to_signals(key="labour_market_back")
+        render_detail_topbar(
+            key="labour_market_back",
+            panel_label="Panel 02 / Labour market",
+            owner="Tadhg Findon",
+        )
         labour_market.render_detail(default_date)
         return
 
@@ -64,13 +91,35 @@ def render_workspace() -> None:
 
     if active_panel == "irish":
         scroll_to_top()
-        render_back_to_signals(key="irish_lens_back")
+        render_detail_topbar(
+            key="irish_lens_back",
+            panel_label="Panel 04 / Irish lens",
+            owner="Matthias Clark",
+        )
         irish_lens.render_detail(default_date)
         return
 
     if active_panel in {"stress", "signal_lab"}:
         scroll_to_top()
-        render_back_to_signals(key="financial_stress_back")
+        fred_ready = has_fred_api_key()
+        if stress_view.is_live:
+            stress_status = "LIVE PUBLIC DATA"
+            refresh_note = "FRED API key connected"
+        elif fred_ready:
+            stress_status = "SIMULATED PREVIEW"
+            refresh_note = "Key connected. Refresh to load live data"
+        else:
+            stress_status = "SIMULATED PREVIEW"
+            refresh_note = "FRED API key required"
+        render_detail_topbar(
+            key="financial_stress_back",
+            panel_label="Panel 03 / Financial stress",
+            owner="Rohi Aluede",
+            status=stress_status,
+            action_label="Refresh live data",
+            action_note=refresh_note,
+            action_callback=refresh_financial_stress_data,
+        )
         financial_stress.render_detail(
             default_date,
             view=stress_view,

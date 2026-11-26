@@ -22,6 +22,12 @@ def activate_session_credentials() -> None:
         os.environ["FRED_API_KEY"] = fred_key
 
 
+def has_fred_api_key() -> bool:
+    """Return whether this session can make authenticated FRED requests."""
+    activate_session_credentials()
+    return bool(os.environ.get("FRED_API_KEY", "").strip())
+
+
 def _save_fred_key() -> None:
     key = str(st.session_state.get("fred_api_key_input", "")).strip()
     if key:
@@ -46,6 +52,10 @@ def render_connections() -> None:
     """Render a safe place to configure optional live-data credentials."""
     activate_session_credentials()
     configured = bool(os.environ.get("FRED_API_KEY"))
+
+    notice = st.session_state.pop("connection_notice", None)
+    if notice:
+        st.info(str(notice))
 
     st.markdown("# Data connections")
     st.write(

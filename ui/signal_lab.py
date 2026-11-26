@@ -147,6 +147,12 @@ def _terrain_figure(
                 if compact
                 else {"x": 1.55, "y": 1.55, "z": 0.85}
             },
+            "aspectmode": "manual",
+            "aspectratio": (
+                {"x": 1.55, "y": 1.0, "z": 0.8}
+                if compact
+                else {"x": 2.15, "y": 1.05, "z": 0.9}
+            ),
             "bgcolor": "rgba(0,0,0,0)",
         },
     )
@@ -175,7 +181,7 @@ def render_signal_lab_preview(
         _terrain_figure(view, height=300, compact=True),
         width="stretch",
         theme=None,
-        config={"displayModeBar": False, "responsive": True},
+        config={"displayModeBar": False, "responsive": True, "scrollZoom": False},
         key="signal_lab_terrain_preview",
     )
     st.caption(
@@ -237,29 +243,6 @@ def _phase_table(result: StrategyLabResult) -> pd.DataFrame:
 def render_signal_lab(view: FinancialStressView) -> None:
     """Render the Financial Stress terrain and strategy diagnostics."""
     result = build_strategy_lab(view)
-    st.caption("PANEL 03 / FINANCIAL STRESS / 3D SIGNAL LAB")
-    st.subheader("Signal terrain & strategy diagnostics")
-    st.write(
-        "This lab turns the dashboard's market-stress history into a deeper visual "
-        "diagnostic. It asks how the component z-scores behaved before, during and "
-        "after recessions, and how simple exposure rules would have changed historical "
-        "return and risk. It is an explanatory backtest, not investment advice."
-    )
-
-    st.subheader("Five-dimensional stress surface")
-    st.write(
-        "Start here. The surface puts every Financial Stress channel on the same "
-        "0 to 100 scale, making it possible to see whether pressure is isolated or "
-        "spreading across credit, volatility, the Fed stress index and equity drawdown."
-    )
-    st.plotly_chart(
-        _terrain_figure(view),
-        width="stretch",
-        theme=None,
-        config={"displayModeBar": True, "responsive": True},
-        key="signal_lab_terrain",
-    )
-
     signal = view.signal
     strongest_key, strongest_value = max(
         signal.components.items(),
@@ -273,103 +256,118 @@ def render_signal_lab(view: FinancialStressView) -> None:
         "stlfsi": "the St. Louis Fed stress index",
         "drawdown": "equity drawdown",
     }
-    st.markdown(
-        f"""
-        ### How to read what you are seeing
-
-        **Left to right is time.** Each slice is one completed historical week. The five
-        rows are IG OAS, HY OAS, VIX, STLFSI and S&P 500 drawdown.
-
-        **Height is stress, not return.** A height near 50 is close to the trailing
-        historical baseline. Values above 67 enter the ALERT band. Values below 34 are
-        comparatively calm. The score is derived from causal 156-week z-scores, so the
-        current week never enters its own baseline.
-
-        **Colour shows warning intensity.** Green is comparatively calm, yellow is
-        elevated, and red starts at 55/100 so emerging pressure is visible before the
-        formal 67/100 ALERT threshold. Colour is an early visual cue, not a recession
-        prediction by itself.
-
-        **Shape shows breadth.** One tall row is an isolated warning. A ridge across
-        several rows means credit, volatility and market losses are agreeing, which is a
-        stronger stress signal.
-
-        **Current selected-date reading:** {signal.score:.0f}/100, **{signal.status}**,
-        with {breadth} of {len(signal.components)} channels in ALERT. The strongest
-        channel is {component_names.get(strongest_key, strongest_key)} at
-        {strongest_value:.0f}/100. {signal.verdict}
+    st.html(
+        """
+        <section class="rr-lab-hero">
+          <p class="rr-kicker">PANEL 03 / FINANCIAL STRESS / 3D SIGNAL LAB</p>
+          <h2>Signal terrain and strategy diagnostics</h2>
+          <p>This lab turns market-stress history into a deeper visual diagnostic.
+          It compares five causal stress channels across time, then tests how simple
+          exposure rules behaved before, during and after recessions.</p>
+          <div class="rr-lab-tags"><span>156-WEEK BASELINE</span><span>5 CHANNELS</span>
+          <span>NO LOOK-AHEAD</span><span>EXPLANATORY BACKTEST</span></div>
+        </section>
         """
     )
+    with st.container(key="signal_lab_surface_section"):
+        st.html(
+            """
+            <div class="rr-lab-section-head"><span>01 / STRESS TERRAIN</span>
+            <div><h3>Five-dimensional stress surface</h3>
+            <p>Rotate or drag the surface to inspect it. Scroll-wheel zoom is disabled
+            so the page remains easy to read.</p></div></div>
+            """
+        )
+        st.plotly_chart(
+            _terrain_figure(view, height=720),
+            width="stretch",
+            theme=None,
+            config={"displayModeBar": True, "responsive": True, "scrollZoom": False},
+            key="signal_lab_terrain",
+        )
+        st.html(
+            f"""
+            <div class="rr-lab-reading-grid">
+              <article><span>TIME</span><strong>Left to right</strong><p>Each slice is one
+              completed historical week.</p></article>
+              <article><span>HEIGHT</span><strong>Stress, not return</strong><p>Values above
+              67 enter ALERT. Values below 34 are comparatively calm.</p></article>
+              <article><span>COLOUR</span><strong>Early warning</strong><p>Red begins at
+              55/100 to reveal pressure before the formal alert threshold.</p></article>
+              <article><span>SHAPE</span><strong>Signal breadth</strong><p>A ridge across
+              rows means several markets are warning together.</p></article>
+            </div>
+            <div class="rr-lab-current"><span>CURRENT SELECTED-DATE READING</span>
+            <strong>{signal.score:.0f}/100 · {signal.status}</strong>
+            <p>{breadth} of {len(signal.components)} channels are in ALERT. The strongest
+            channel is {component_names.get(strongest_key, strongest_key)} at
+            {strongest_value:.0f}/100. {signal.verdict}</p></div>
+            """
+        )
 
-    st.divider()
-    st.subheader("Three transparent exposure rules")
-    st.write(
-        "Buy & hold remains fully invested. Stress-scaled exposure falls gradually "
-        "as the composite rises. Alert reducer uses 100% exposure in CALM, 65% in "
-        "WATCH and 25% in ALERT. Every rule uses the previous week's score to avoid "
-        "look-ahead bias; cash is modelled at 0% and costs are omitted."
-    )
-    st.plotly_chart(
-        _wealth_figure(result),
-        width="stretch",
-        theme=None,
-        config={"displayModeBar": False, "responsive": True},
-        key="signal_lab_wealth",
-    )
-    formatted = result.metrics.reset_index()
-    st.dataframe(
-        formatted,
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "Annual return": st.column_config.NumberColumn(format="percent"),
-            "Annual volatility": st.column_config.NumberColumn(format="percent"),
-            "Sharpe (0% cash)": st.column_config.NumberColumn(format="%.2f"),
-            "Maximum drawdown": st.column_config.NumberColumn(format="percent"),
-            "Average exposure": st.column_config.NumberColumn(format="percent"),
-        },
-    )
+    with st.container(key="signal_lab_strategy_section"):
+        st.html(
+            """
+            <div class="rr-lab-section-head"><span>02 / STRATEGY TEST</span>
+            <div><h3>Three transparent exposure rules</h3>
+            <p>Buy and hold remains fully invested. Stress-scaled exposure falls
+            gradually as stress rises. Alert reducer moves from 100% to 65% and then
+            25% exposure. Every rule uses the previous week's score.</p></div></div>
+            """
+        )
+        st.plotly_chart(
+            _wealth_figure(result),
+            width="stretch",
+            theme=None,
+            config={"displayModeBar": False, "responsive": True, "scrollZoom": False},
+            key="signal_lab_wealth",
+        )
+        formatted = result.metrics.reset_index()
+        st.dataframe(
+            formatted,
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "Annual return": st.column_config.NumberColumn(format="percent"),
+                "Annual volatility": st.column_config.NumberColumn(format="percent"),
+                "Sharpe (0% cash)": st.column_config.NumberColumn(format="%.2f"),
+                "Maximum drawdown": st.column_config.NumberColumn(format="percent"),
+                "Average exposure": st.column_config.NumberColumn(format="percent"),
+            },
+        )
 
-    st.divider()
-    st.subheader("Performance around recession episodes")
-    st.write(
-        "Pre-recession and recovery each cover 26 weeks around the NBER-labelled "
-        "episode. The table separates what happened in each regime instead of "
-        "allowing a strong expansion to hide weak recession performance."
-    )
-    st.dataframe(
-        _phase_table(result),
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "Average annualised return": st.column_config.NumberColumn(format="percent"),
-            "Weekly volatility": st.column_config.NumberColumn(format="percent"),
-            "Average stress z-score": st.column_config.NumberColumn(format="%.2f"),
-        },
-    )
+        st.html(
+            """
+            <div class="rr-lab-section-head rr-lab-section-head--nested">
+            <span>03 / RECESSION PHASES</span><div><h3>Performance around recession episodes</h3>
+            <p>Pre-recession and recovery each cover 26 weeks around the NBER-labelled
+            episode. Separating regimes prevents a strong expansion from hiding weak
+            recession performance.</p></div></div>
+            """
+        )
+        st.dataframe(
+            _phase_table(result),
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "Average annualised return": st.column_config.NumberColumn(format="percent"),
+                "Weekly volatility": st.column_config.NumberColumn(format="percent"),
+                "Average stress z-score": st.column_config.NumberColumn(format="%.2f"),
+            },
+        )
 
-    st.divider()
-    st.markdown(
+    st.html(
         """
-        ## Definitions
-
-        ### Z-score
-        The number of historical standard deviations an observation sits above or
-        below its trailing baseline. Positive stress z-scores mean conditions are
-        tighter than normal; they do not directly mean a recession is certain.
-
-        ### Sharpe ratio
-        Annualised average strategy return divided by annualised volatility. This
-        implementation uses a 0% cash benchmark so the comparison stays transparent.
-        A higher historical Sharpe ratio is not a promise of future performance.
-
-        ### Maximum drawdown
-        The largest peak-to-trough loss in the historical strategy path. It measures
-        severity, while volatility measures the typical variation in weekly returns.
-
-        ### Recession phases
-        **Pre-recession** is the 26 weeks before an NBER episode, **recession** is the
-        labelled episode, and **recovery** is the following 26 weeks. All other weeks
-        are classified as expansion.
+        <section class="rr-lab-definitions"><header><span>04 / DEFINITIONS</span>
+        <h3>Read the diagnostics correctly</h3></header><div>
+        <article><strong>Z-score</strong><p>Historical standard deviations above or below
+        the trailing baseline. A positive stress z-score does not guarantee recession.</p></article>
+        <article><strong>Sharpe ratio</strong><p>Annualised average return divided by
+        annualised volatility, using a 0% cash benchmark here.</p></article>
+        <article><strong>Maximum drawdown</strong><p>The largest peak-to-trough loss in the
+        historical strategy path.</p></article>
+        <article><strong>Recession phases</strong><p>The 26 weeks before an NBER episode,
+        the episode itself, the following 26 weeks, and all other expansion weeks.</p></article>
+        </div></section>
         """
     )
