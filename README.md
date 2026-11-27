@@ -285,12 +285,10 @@ collisions. Once a panel is ready, connect it in `app.py` and pass its standard
 
 | Shared or panel area | Current contribution |
 | --- | --- |
-| Intro, cursor, time machine and four-panel layout | Rohi Aluede |
-| Financial Stress 3D Signal Lab, strategy diagnostics and responsive containment | Rohi Aluede |
-| Financial Stress data, transformations, score and views | Rohi Aluede |
-| Bond Market analysis | Luke O'Brien Peterson |
-| Labour Market analysis | Tadhg Findon |
-| Irish Lens analysis | Matthias Clark |
+| Financial Stress signal, financial stress, market volatility, backtesting, dashboard design, time machine | Rohi Aluede |
+| Bond Market analysis: yield curve, bond spreads, recession probability, credit spreads | Luke O'Brien Peterson |
+| Labour Market analysis: Sahm rule, jobless claims, payrolls, data revisions, track record | Tadhg Findon |
+| Irish Lens analysis: Irish economy, GDP vs domestic demand, Irish unemployment, US trade exposure | Matthias Clark |
 
 Run the complete automated suite before pushing:
 
