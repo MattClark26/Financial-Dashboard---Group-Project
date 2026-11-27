@@ -39,6 +39,7 @@ MODEL_COMPARISON_CACHE = DATA_DIR.parent / "baa_model_comparison_probabilities.c
 
 
 def _get_fred_api_key() -> str:
+    """Retrieve the FRED API key without hardcoding credentials."""
     key = os.environ.get("FRED_API_KEY", "").strip()
     if key:
         return key
@@ -107,6 +108,7 @@ def _download_fred_api_series(series_id: str, _api_key: str) -> pd.Series:
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def _load_backup_csv(series_id: str) -> pd.Series:
+    """Load and clean locally stored data when FRED is unavailable."""
     backup = DATA_DIR / f"{series_id}.csv"
     if not backup.exists():
         return pd.Series(dtype="float64", name=series_id)
@@ -244,13 +246,17 @@ def load_bond_market_signal(as_of: object) -> dict:
     credit_monthly.index = credit_monthly.index.to_period("M")
     credit_monthly.name = "baa_credit_spread"
 
+    # Only compare months where both indicators have data.
     common = pd.concat([baseline, credit_monthly], axis=1, join="inner").dropna()
     common = common.loc[common.index <= _completed_month(selected_date)].sort_index()
+    # Require at least two years of shared data for the historical comparison.
     if len(common) < 24:
         return _no_score("fewer than 24 shared completed months", float(probabilities.iloc[-1]))
 
     treasury_percentile = _historical_percentile(common["baseline_probability"])
     credit_percentile = _historical_percentile(common["baa_credit_spread"])
+    # Give greater weight to the forward-looking yield curve,
+    # while retaining credit spreads as a measure of current financial stress.
     weighted_percentile = 0.70 * treasury_percentile + 0.30 * credit_percentile
     score = _smoothed_warning_score(weighted_percentile)
     status = "ALERT" if score >= 67 else "WATCH" if score >= 34 else "CALM"
@@ -314,6 +320,7 @@ def render(as_of: date, *, signal: dict | None = None) -> dict:
 
 
 def _load_spread(series_id: str, as_of: pd.Timestamp) -> pd.Series:
+    """Load the selected spread and restrict observations to the Time Machine date."""
     values, _ = _load_market_series(series_id)
     return values.loc[values.index <= as_of]
 
@@ -324,6 +331,7 @@ def _load_recessions(as_of: pd.Timestamp) -> pd.Series:
 
 
 def _recession_periods(values: pd.Series) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    """Identify recession start and end dates for shading historical charts."""
     monthly = values.resample("ME").max().fillna(0).astype(int)
     starts = monthly.index[(monthly.eq(1)) & (monthly.shift(fill_value=0).eq(0))]
     ends = monthly.index[(monthly.eq(1)) & (monthly.shift(-1, fill_value=0).eq(0))]
@@ -367,6 +375,7 @@ def _spread_figure(
 
 
 def _credit_figure(values: pd.Series, recessions: pd.Series) -> go.Figure:
+    """Create an interactive Baa credit-spread chart with recession shading."""
     figure = go.Figure()
     figure.add_scatter(
         x=values.index,
@@ -398,6 +407,7 @@ def _credit_figure(values: pd.Series, recessions: pd.Series) -> go.Figure:
 
 
 def _load_model_comparison(as_of: pd.Timestamp) -> pd.DataFrame:
+    """Load saved regression results for comparing the three forecasting models."""
     if not MODEL_COMPARISON_CACHE.exists():
         return pd.DataFrame()
     frame = pd.read_csv(MODEL_COMPARISON_CACHE)
